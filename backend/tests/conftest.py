@@ -71,18 +71,14 @@ def mock_openai_chat(monkeypatch):
 def temp_chroma_db(tmp_path, monkeypatch):
     """Provide a real ChromaDB client backed by a temp directory.
 
-    Monkeypatches CHROMA_PERSIST_PATH so all components use the same tmp db.
+    Uses monkeypatch.setattr on the shared settings singleton so every module
+    that already imported `settings` (e.g. chroma_loader, retriever) picks up
+    the temp path without needing a module reload.
     """
-    chroma_path = str(tmp_path / "chroma")
-    monkeypatch.setenv("CHROMA_PERSIST_PATH", chroma_path)
-
-    # Re-import settings after env change so the path is picked up
-    import importlib
-    import app.config as cfg_module
-    importlib.reload(cfg_module)
     from app.config import settings
-    settings.chroma_persist_path = chroma_path
 
+    chroma_path = str(tmp_path / "chroma")
+    monkeypatch.setattr(settings, "chroma_persist_path", chroma_path)
     yield chroma_path
 
 
