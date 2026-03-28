@@ -137,3 +137,44 @@ def sample_chunks() -> list[dict]:
             },
         },
     ]
+
+
+# ---------------------------------------------------------------------------
+# Synthetic text fixtures (no file I/O — used by unit tests directly)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def sample_english_text() -> str:
+    """Return a realistic English NDA excerpt long enough for language detection."""
+    return (
+        "NON-DISCLOSURE AGREEMENT\n"
+        "This Agreement is made between TechCorp GmbH and Riverty GmbH.\n"
+        "GDPR Compliance: Both parties agree to comply with GDPR Article 28.\n"
+        "Termination: Either party may terminate with 30 days written notice.\n"
+        "Penalty: Breach incurs a penalty of EUR 50,000.\n"
+    ) * 3  # repeat so langdetect has enough signal
+
+
+@pytest.fixture
+def sample_german_text() -> str:
+    """Return a realistic German contract excerpt long enough for language detection."""
+    return (
+        "DIENSTLEISTUNGSVERTRAG\n"
+        "Dieser Vertrag wird zwischen Müller Consulting GmbH und Riverty GmbH geschlossen.\n"
+        "DSGVO-Compliance: Beide Parteien verpflichten sich zur Einhaltung der DSGVO.\n"
+        "Kündigung: Der Vertrag kann mit 30 Tagen Frist gekündigt werden.\n"
+    ) * 3
+
+
+# ---------------------------------------------------------------------------
+# Azure Search mock (production swap tests)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def mock_azure_search():
+    """Mock the Azure AI Search SDK for production swap tests."""
+    with patch("app.etl.loaders.azure_loader.AzureSearchLoader") as mock_cls:
+        instance = mock_cls.return_value
+        instance.upload_documents.return_value = [MagicMock(succeeded=True)]
+        instance.get_document_count.return_value = 10
+        yield instance

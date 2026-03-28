@@ -253,3 +253,148 @@ def test_build_agent_compiles():
 
     agent = build_agent()
     assert agent is not None
+
+
+# ---------------------------------------------------------------------------
+# ContractRetriever — additional tests
+# ---------------------------------------------------------------------------
+
+class TestContractRetrieverExtra:
+    """Additional retriever tests focused on result content after seeding."""
+
+    def test_retrieves_results_for_known_query(
+        self, temp_chroma_db, mock_openai_embeddings, sample_chunks
+    ):
+        """Happy path: after ingesting a GDPR chunk, retrieve returns >=1 result."""
+        gdpr_chunk = [
+            {
+                "text": "GDPR Compliance: Both parties agree to comply with GDPR Article 28.",
+                "metadata": {
+                    "source_file": "nda.pdf",
+                    "chunk_index": 0,
+                    "total_chunks": 1,
+                    "language": "en",
+                    "file_type": ".pdf",
+                },
+            }
+        ]
+        from app.etl.loaders.chroma_loader import ChromaLoader
+        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
+            mock_embed.return_value = [0.1] * 1536
+            loader = ChromaLoader()
+            loader.load(gdpr_chunk)
+
+        from app.rag.retriever import ContractRetriever
+        retriever = ContractRetriever()
+        results = retriever.retrieve("GDPR compliance")
+        assert len(results) >= 1
+        assert results[0]["source_file"] == "nda.pdf"
+
+
+# ---------------------------------------------------------------------------
+# LangGraph agent — stream and router tests
+# ---------------------------------------------------------------------------
+
+class TestLangGraphAgent:
+    """Tests for build_agent(), stream_query(), and individual node classification."""
+
+    def test_agent_builds_without_error(self):
+        """Happy path: build_agent() returns a compiled graph (no exception)."""
+        from app.rag.agent import build_agent
+        agent = build_agent()
+        assert agent is not None
+
+    @pytest.mark.asyncio
+    async def test_stream_query_yields_tokens_and_done(
+        self, temp_chroma_db, mock_openai_embeddings
+    ):
+        """Happy path: stream_query yields at least one content token then '[DONE]'."""
+        from app.rag.agent import stream_query
+
+        async def _fake_astream_events(state, version):
+            chunk = MagicMock()
+            chunk.content = "Yes, GDPR clause found."
+            yield {"event": "on_chat_model_stream", "data": {"chunk": chunk}}
+
+        mock_agent = MagicMock()
+        mock_agent.astream_events = _fake_astream_events
+
+        with patch("app.rag.agent.build_agent", return_value=mock_agent):
+            tokens = []
+            async for token in stream_query("Does this contract have a GDPR clause?"):
+                tokens.append(token)
+
+        assert "[DONE]" in tokens
+        assert any(t != "[DONE]" for t in tokens), "Expected at least one content token"
+
+    @pytest.mark.asyncio
+    async def test_stream_query_on_empty_store_yields_done(
+        self, temp_chroma_db, mock_openai_embeddings
+    ):
+        """Edge case: empty ChromaDB — stream emits no LLM tokens but still yields [DONE]."""
+        from app.rag.agent import stream_query
+
+        async def _fake_astream_events(state, version):
+            # No on_chat_model_stream events — simulates empty-store short-circuit
+            return
+            yield  # pragma: no cover — makes this an async generator
+
+        mock_agent = MagicMock()
+        mock_agent.astream_events = _fake_astream_events
+
+        with patch("app.rag.agent.build_agent", return_value=mock_agent):
+            tokens = []
+            async for token in stream_query("Does this contract have a GDPR clause?"):
+                tokens.append(token)
+
+        assert tokens == ["[DONE]"]
+
+    def test_query_router_classifies_find_missing(self):
+        """Happy path: 'contracts without GDPR' classified as 'find_missing'."""
+        from app.rag.agent import query_router, AgentState
+        from unittest.mock import AsyncMock
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "find_missing"
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        state: AgentState = {
+            "question": "Which contracts do not have a GDPR clause?",
+            "query_type": "",
+            "retrieved_chunks": [],
+            "answer": "",
+            "sources": [],
+        }
+
+        with patch("app.rag.agent.AsyncOpenAI", return_value=mock_client):
+            result = query_router(state)
+
+        assert result["query_type"] == "find_missing"
+
+    def test_query_router_classifies_find_clause(self):
+        """Happy path: 'does contract have termination clause' classified as 'find_clause'."""
+        from app.rag.agent import query_router, AgentState
+        from unittest.mock import AsyncMock
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = "find_clause"
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        state: AgentState = {
+            "question": "Does the NDA contract have a termination clause?",
+            "query_type": "",
+            "retrieved_chunks": [],
+            "answer": "",
+            "sources": [],
+        }
+
+        with patch("app.rag.agent.AsyncOpenAI", return_value=mock_client):
+            result = query_router(state)
+
+        assert result["query_type"] == "find_clause"

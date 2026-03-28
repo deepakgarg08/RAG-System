@@ -1,0 +1,165 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.3, pytest-8.2.2, pluggy-1.6.0 -- /mnt/shared3/b-ALL-PROGRAMMING-2/PROJECTS/Riverty-task/backend/riverty/bin/python3
+cachedir: .pytest_cache
+rootdir: /mnt/shared3/b-ALL-PROGRAMMING-2/PROJECTS/Riverty-task/backend
+configfile: pytest.ini
+collecting ... collected 77 items
+
+tests/test_etl.py::TestTextCleaner::test_clean_collapses_extra_whitespace PASSED [  1%]
+tests/test_etl.py::TestTextCleaner::test_clean_collapses_excess_newlines PASSED [  2%]
+tests/test_etl.py::TestTextCleaner::test_clean_removes_pipe_artifacts PASSED [  3%]
+tests/test_etl.py::TestTextCleaner::test_clean_removes_long_underscores PASSED [  5%]
+tests/test_etl.py::TestTextCleaner::test_clean_strips_leading_trailing_whitespace PASSED [  6%]
+tests/test_etl.py::TestTextCleaner::test_clean_normalises_german_umlauts PASSED [  7%]
+tests/test_etl.py::TestTextCleaner::test_clean_returns_string_on_empty_input PASSED [  9%]
+tests/test_etl.py::TestTextCleaner::test_detect_language_english PASSED  [ 10%]
+tests/test_etl.py::TestTextCleaner::test_detect_language_german PASSED   [ 11%]
+tests/test_etl.py::TestTextCleaner::test_detect_language_returns_unknown_on_too_short PASSED [ 12%]
+tests/test_etl.py::TestDocumentChunker::test_chunk_returns_list_of_dicts PASSED [ 14%]
+tests/test_etl.py::TestDocumentChunker::test_chunk_attaches_chunk_index PASSED [ 15%]
+tests/test_etl.py::TestDocumentChunker::test_chunk_attaches_total_chunks PASSED [ 16%]
+tests/test_etl.py::TestDocumentChunker::test_chunk_preserves_base_metadata PASSED [ 18%]
+tests/test_etl.py::TestDocumentChunker::test_chunk_empty_text_returns_empty_list PASSED [ 19%]
+tests/test_etl.py::TestDocumentChunker::test_chunk_text_within_size_limit PASSED [ 20%]
+tests/test_etl.py::TestPDFExtractor::test_extract_returns_string_from_valid_pdf PASSED [ 22%]
+tests/test_etl.py::TestPDFExtractor::test_extract_returns_empty_string_on_missing_file PASSED [ 23%]
+tests/test_etl.py::TestPDFExtractor::test_can_handle_pdf_extension PASSED [ 24%]
+tests/test_etl.py::TestChromaLoader::test_load_stores_chunks_and_returns_count PASSED [ 25%]
+tests/test_etl.py::TestChromaLoader::test_load_increments_document_count PASSED [ 27%]
+tests/test_etl.py::TestChromaLoader::test_get_document_count_returns_int PASSED [ 28%]
+tests/test_etl.py::TestChromaLoader::test_load_empty_chunks_returns_zero PASSED [ 29%]
+tests/test_etl.py::TestIngestionPipeline::test_ingest_pdf_happy_path PASSED [ 31%]
+tests/test_etl.py::TestIngestionPipeline::test_ingest_unsupported_type_raises_value_error PASSED [ 32%]
+tests/test_etl.py::TestIngestionPipeline::test_ingest_returns_failed_status_on_corrupt_file PASSED [ 33%]
+tests/test_etl.py::TestIngestionPipeline::test_ingest_result_has_required_keys PASSED [ 35%]
+tests/test_etl.py::TestIngestionPipeline::test_pipeline_detects_german_language PASSED [ 36%]
+tests/test_etl.py::TestIngestionPipeline::test_pipeline_handles_empty_file PASSED [ 37%]
+tests/test_etl.py::TestOCRExtractor::test_extracts_text_from_valid_image PASSED [ 38%]
+tests/test_etl.py::TestOCRExtractor::test_handles_blank_image PASSED     [ 40%]
+tests/test_etl.py::TestOCRExtractor::test_supports_german_language PASSED [ 41%]
+tests/test_etl.py::TestOCRExtractor::test_returns_empty_on_missing_file PASSED [ 42%]
+tests/test_etl.py::TestOCRExtractor::test_can_handle_image_extensions PASSED [ 44%]
+tests/test_etl.py::TestDocumentChunkerEdgeCases::test_short_text_produces_single_chunk PASSED [ 45%]
+tests/test_etl.py::TestDocumentChunkerEdgeCases::test_overlap_is_preserved_across_chunks PASSED [ 46%]
+tests/test_etl.py::TestDocumentChunkerEdgeCases::test_chunk_index_is_sequential PASSED [ 48%]
+tests/test_etl.py::TestChromaLoaderExtra::test_loads_metadata_with_each_chunk PASSED [ 49%]
+tests/test_etl.py::TestChromaLoaderExtra::test_handles_duplicate_chunk_ids PASSED [ 50%]
+tests/test_etl.py::TestAzureLoaderStub::test_azure_loader_raises_not_implemented_on_init PASSED [ 51%]
+tests/test_etl.py::TestAzureLoaderStub::test_azure_loader_error_references_migration_guide PASSED [ 53%]
+tests/test_rag.py::TestEmbeddingService::test_get_embedding_returns_1536_floats PASSED [ 54%]
+tests/test_rag.py::TestEmbeddingService::test_get_embedding_replaces_newlines PASSED [ 55%]
+tests/test_rag.py::TestEmbeddingService::test_get_embedding_raises_on_api_error PASSED [ 57%]
+tests/test_rag.py::TestEmbeddingService::test_get_embeddings_batch_processes_in_batches PASSED [ 58%]
+tests/test_rag.py::TestContractRetriever::test_get_collection_stats_returns_dict PASSED [ 59%]
+tests/test_rag.py::TestContractRetriever::test_retrieve_returns_empty_on_empty_collection PASSED [ 61%]
+tests/test_rag.py::TestContractRetriever::test_retrieve_result_schema PASSED [ 62%]
+tests/test_rag.py::TestContractRetriever::test_retrieve_respects_top_k PASSED [ 63%]
+tests/test_rag.py::TestContractRetriever::test_retrieve_filters_low_similarity PASSED [ 64%]
+tests/test_rag.py::TestAgentNodes::test_formatter_appends_sources PASSED [ 66%]
+tests/test_rag.py::TestAgentNodes::test_formatter_deduplicates_sources PASSED [ 67%]
+tests/test_rag.py::TestAgentNodes::test_formatter_no_sources_on_empty_chunks PASSED [ 68%]
+tests/test_rag.py::TestAgentNodes::test_retriever_node_sets_empty_answer_when_no_results PASSED [ 70%]
+tests/test_rag.py::test_build_agent_compiles PASSED                      [ 71%]
+tests/test_rag.py::TestContractRetrieverExtra::test_retrieves_results_for_known_query PASSED [ 72%]
+tests/test_rag.py::TestLangGraphAgent::test_agent_builds_without_error PASSED [ 74%]
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_yields_tokens_and_done PASSED [ 75%]
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_on_empty_store_yields_done PASSED [ 76%]
+tests/test_rag.py::TestLangGraphAgent::test_query_router_classifies_find_missing PASSED [ 77%]
+tests/test_rag.py::TestLangGraphAgent::test_query_router_classifies_find_clause PASSED [ 79%]
+tests/test_routes.py::test_health_returns_ok PASSED                      [ 80%]
+tests/test_routes.py::test_health_response_shape PASSED                  [ 81%]
+tests/test_routes.py::test_health_mode_is_demo_without_azure PASSED      [ 83%]
+tests/test_routes.py::test_health_document_count_reflects_collection PASSED [ 84%]
+tests/test_routes.py::test_health_cors_header_present PASSED             [ 85%]
+tests/test_routes.py::test_ingest_unsupported_type_returns_400 PASSED    [ 87%]
+tests/test_routes.py::test_ingest_txt_returns_400 PASSED                 [ 88%]
+tests/test_routes.py::test_ingest_pdf_success PASSED                     [ 89%]
+tests/test_routes.py::test_ingest_pipeline_failure_returns_failed_status PASSED [ 90%]
+tests/test_routes.py::test_ingest_response_has_required_fields PASSED    [ 92%]
+tests/test_routes.py::test_query_streams_sse_tokens PASSED               [ 93%]
+tests/test_routes.py::test_query_short_question_returns_422 PASSED       [ 94%]
+tests/test_routes.py::test_query_missing_question_returns_422 PASSED     [ 96%]
+tests/test_routes.py::test_query_sse_content_type_header PASSED          [ 97%]
+tests/test_routes.py::test_query_headers_include_no_cache PASSED         [ 98%]
+tests/test_routes.py::test_ingest_detects_language PASSED                [100%]
+
+=============================== warnings summary ===============================
+
+
+tests/test_etl.py::TestTextCleaner::test_clean_collapses_extra_whitespace
+
+tests/test_etl.py::TestDocumentChunker::test_chunk_returns_list_of_dicts
+    from pydantic.v1.fields import FieldInfo as FieldInfoV1
+
+tests/test_etl.py::TestChromaLoader::test_load_stores_chunks_and_returns_count
+
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_yields_tokens_and_done
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_on_empty_store_yields_done
+
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_yields_tokens_and_done
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_on_empty_store_yields_done
+
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_yields_tokens_and_done
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_on_empty_store_yields_done
+
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_yields_tokens_and_done
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_on_empty_store_yields_done
+
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_yields_tokens_and_done
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_on_empty_store_yields_done
+
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_yields_tokens_and_done
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_on_empty_store_yields_done
+
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_yields_tokens_and_done
+tests/test_rag.py::TestLangGraphAgent::test_stream_query_on_empty_store_yields_done
+
+tests/test_routes.py::test_health_returns_ok
+tests/test_routes.py::test_health_returns_ok
+tests/test_routes.py::test_health_returns_ok
+tests/test_routes.py::test_health_returns_ok
+tests/test_routes.py::test_health_returns_ok
+tests/test_routes.py::test_health_returns_ok
+
+tests/test_routes.py: 36 warnings
+
+tests/test_routes.py: 16 warnings
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
+---------- coverage: platform linux, python 3.14.3-final-0 -----------
+Name                                  Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------
+app/__init__.py                           0      0   100%
+app/api/__init__.py                       0      0   100%
+app/api/routes/__init__.py                0      0   100%
+app/api/routes/health.py                 14      0   100%
+app/api/routes/ingest.py                 27      0   100%
+app/api/routes/query.py                  16      0   100%
+app/config.py                            26      0   100%
+app/etl/__init__.py                       0      0   100%
+app/etl/extractors/__init__.py            0      0   100%
+app/etl/extractors/base.py                7      2    71%   15, 19
+app/etl/extractors/ocr_extractor.py      27      0   100%
+app/etl/extractors/pdf_extractor.py      49      4    92%   74, 106-108
+app/etl/loaders/__init__.py               0      0   100%
+app/etl/loaders/azure_loader.py          11      2    82%   88, 100
+app/etl/loaders/base.py                   8      2    75%   15, 20
+app/etl/loaders/chroma_loader.py         27      1    96%   73
+app/etl/pipeline.py                      47      5    89%   123-126, 130
+app/etl/transformers/__init__.py          0      0   100%
+app/etl/transformers/chunker.py          19      0   100%
+app/etl/transformers/cleaner.py          26      3    88%   85-87
+app/main.py                              24      7    71%   32-42
+app/models.py                             6      0   100%
+app/rag/__init__.py                       0      0   100%
+app/rag/agent.py                         85     25    71%   77-83, 142-143, 158-191
+app/rag/embeddings.py                    39      1    97%   141
+app/rag/retriever.py                     30      1    97%   83
+app/storage/__init__.py                   0      0   100%
+app/storage/azure_blob.py                 5      5     0%   48-78
+app/storage/local_storage.py             19     11    42%   29-31, 43-46, 60-65
+-------------------------------------------------------------------
+TOTAL                                   512     69    87%
+
+====================== 77 passed, 4152 warnings in 10.37s ======================

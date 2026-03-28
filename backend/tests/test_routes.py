@@ -218,3 +218,43 @@ def test_query_sse_content_type_header(client):
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
+
+
+def test_query_headers_include_no_cache(client):
+    """Happy path: SSE response includes Cache-Control: no-cache header."""
+    async def fake_stream(question: str):
+        yield "answer"
+        yield "[DONE]"
+
+    with patch("app.api.routes.query.stream_query", side_effect=fake_stream):
+        response = client.post(
+            "/api/query",
+            json={"question": "Does the contract have a penalty clause?"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers.get("cache-control") == "no-cache"
+
+
+def test_ingest_detects_language(client):
+    """Happy path: German contract upload returns language='de' in response."""
+    fake_result = {
+        "filename": "vertrag.pdf",
+        "file_type": ".pdf",
+        "language": "de",
+        "chunks_created": 5,
+        "status": "success",
+        "error": None,
+    }
+    with patch("app.api.routes.ingest.LocalStorage") as mock_storage_cls, \
+         patch("app.api.routes.ingest.IngestionPipeline") as mock_pipeline_cls:
+        mock_storage_cls.return_value.save.return_value = "/tmp/vertrag.pdf"
+        mock_pipeline_cls.return_value.ingest.return_value = fake_result
+
+        response = client.post(
+            "/api/ingest",
+            files={"file": ("vertrag.pdf", b"%PDF-1.4 fake", "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["language"] == "de"
