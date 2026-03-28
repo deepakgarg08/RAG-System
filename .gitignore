@@ -1,2 +1,22 @@
 extrafiles/
 .env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+
+# Generated data (demo)
+chroma_db/
+uploads/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+dist/
