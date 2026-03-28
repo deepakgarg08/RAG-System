@@ -87,7 +87,7 @@ def _build_context(chunks: list[dict]) -> str:
 # Node functions
 # ---------------------------------------------------------------------------
 
-def query_router(state: AgentState) -> dict:
+async def query_router(state: AgentState) -> dict:
     """Classify the user question into a query type category.
 
     Args:
@@ -97,24 +97,18 @@ def query_router(state: AgentState) -> dict:
         Partial state update with query_type set.
     """
     client = AsyncOpenAI(api_key=settings.openai_api_key)
-
-    import asyncio
-
-    async def _classify() -> str:
-        response = await client.chat.completions.create(
-            model=_LLM_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": _ROUTER_PROMPT.format(question=state["question"]),
-                }
-            ],
-            temperature=0,
-            max_tokens=20,
-        )
-        return response.choices[0].message.content.strip()
-
-    query_type = asyncio.get_event_loop().run_until_complete(_classify())
+    response = await client.chat.completions.create(
+        model=_LLM_MODEL,
+        messages=[
+            {
+                "role": "user",
+                "content": _ROUTER_PROMPT.format(question=state["question"]),
+            }
+        ],
+        temperature=0,
+        max_tokens=20,
+    )
+    query_type = response.choices[0].message.content.strip()
     logger.info("query_router: classified '%s' → %s", state["question"], query_type)
     return {"query_type": query_type}
 
@@ -143,7 +137,7 @@ def retriever_node(state: AgentState) -> dict:
     return {"retrieved_chunks": chunks}
 
 
-def reasoner(state: AgentState) -> dict:
+async def reasoner(state: AgentState) -> dict:
     """Generate a grounded answer using GPT-4o and the retrieved chunks.
 
     Only uses retrieved contract excerpts — never invents information.
@@ -160,33 +154,27 @@ def reasoner(state: AgentState) -> dict:
 
     context = _build_context(state["retrieved_chunks"])
     client = AsyncOpenAI(api_key=settings.openai_api_key)
-
-    import asyncio
-
-    async def _generate() -> str:
-        response = await client.chat.completions.create(
-            model=_LLM_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": _REASONER_SYSTEM.format(context=context),
-                },
-                {
-                    "role": "user",
-                    "content": state["question"],
-                },
-            ],
-            temperature=0.1,
-            stream=True,
-        )
-        tokens: list[str] = []
-        async for chunk in response:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                tokens.append(delta)
-        return "".join(tokens)
-
-    answer = asyncio.get_event_loop().run_until_complete(_generate())
+    response = await client.chat.completions.create(
+        model=_LLM_MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": _REASONER_SYSTEM.format(context=context),
+            },
+            {
+                "role": "user",
+                "content": state["question"],
+            },
+        ],
+        temperature=0.1,
+        stream=True,
+    )
+    tokens: list[str] = []
+    async for chunk in response:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            tokens.append(delta)
+    answer = "".join(tokens)
     logger.info("reasoner: generated answer (%d chars)", len(answer))
     return {"answer": answer}
 
@@ -246,14 +234,14 @@ def build_agent():
 async def stream_query(question: str) -> AsyncGenerator[str, None]:
     """Stream answer tokens for a user question via the LangGraph agent.
 
-    Uses astream_events to yield tokens as they arrive from GPT-4o,
-    suitable for Server-Sent Events (SSE) delivery to the frontend.
+    Invokes the full agent graph, then yields the answer word-by-word so the
+    SSE endpoint can stream it to the frontend progressively.
 
     Args:
         question: Plain-English question about the uploaded contracts.
 
     Yields:
-        Individual text tokens, then "[DONE]" when the stream is complete.
+        Individual word tokens, then "[DONE]" when the stream is complete.
     """
     agent = build_agent()
     initial_state: AgentState = {
@@ -264,12 +252,11 @@ async def stream_query(question: str) -> AsyncGenerator[str, None]:
         "sources": [],
     }
 
-    async for event in agent.astream_events(initial_state, version="v2"):
-        kind = event.get("event")
-        # Yield LLM stream tokens from the reasoner node
-        if kind == "on_chat_model_stream":
-            chunk = event.get("data", {}).get("chunk")
-            if chunk and hasattr(chunk, "content") and chunk.content:
-                yield chunk.content
+    result = await agent.ainvoke(initial_state)
+    answer = result.get("answer", "No relevant contracts found.")
+
+    # Yield word by word so the frontend receives progressive output
+    for word in answer.split(" "):
+        yield word + " "
 
     yield "[DONE]"

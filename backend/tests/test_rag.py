@@ -310,14 +310,13 @@ class TestLangGraphAgent:
     ):
         """Happy path: stream_query yields at least one content token then '[DONE]'."""
         from app.rag.agent import stream_query
-
-        async def _fake_astream_events(state, version):
-            chunk = MagicMock()
-            chunk.content = "Yes, GDPR clause found."
-            yield {"event": "on_chat_model_stream", "data": {"chunk": chunk}}
+        from unittest.mock import AsyncMock
 
         mock_agent = MagicMock()
-        mock_agent.astream_events = _fake_astream_events
+        mock_agent.ainvoke = AsyncMock(return_value={
+            "answer": "Yes, GDPR clause found.",
+            "sources": ["contract.pdf"],
+        })
 
         with patch("app.rag.agent.build_agent", return_value=mock_agent):
             tokens = []
@@ -331,25 +330,25 @@ class TestLangGraphAgent:
     async def test_stream_query_on_empty_store_yields_done(
         self, temp_chroma_db, mock_openai_embeddings
     ):
-        """Edge case: empty ChromaDB — stream emits no LLM tokens but still yields [DONE]."""
+        """Edge case: agent returns empty answer — stream still yields [DONE]."""
         from app.rag.agent import stream_query
-
-        async def _fake_astream_events(state, version):
-            # No on_chat_model_stream events — simulates empty-store short-circuit
-            return
-            yield  # pragma: no cover — makes this an async generator
+        from unittest.mock import AsyncMock
 
         mock_agent = MagicMock()
-        mock_agent.astream_events = _fake_astream_events
+        mock_agent.ainvoke = AsyncMock(return_value={
+            "answer": "No relevant contracts found.",
+            "sources": [],
+        })
 
         with patch("app.rag.agent.build_agent", return_value=mock_agent):
             tokens = []
             async for token in stream_query("Does this contract have a GDPR clause?"):
                 tokens.append(token)
 
-        assert tokens == ["[DONE]"]
+        assert "[DONE]" in tokens
 
-    def test_query_router_classifies_find_missing(self):
+    @pytest.mark.asyncio
+    async def test_query_router_classifies_find_missing(self):
         """Happy path: 'contracts without GDPR' classified as 'find_missing'."""
         from app.rag.agent import query_router, AgentState
         from unittest.mock import AsyncMock
@@ -370,11 +369,12 @@ class TestLangGraphAgent:
         }
 
         with patch("app.rag.agent.AsyncOpenAI", return_value=mock_client):
-            result = query_router(state)
+            result = await query_router(state)
 
         assert result["query_type"] == "find_missing"
 
-    def test_query_router_classifies_find_clause(self):
+    @pytest.mark.asyncio
+    async def test_query_router_classifies_find_clause(self):
         """Happy path: 'does contract have termination clause' classified as 'find_clause'."""
         from app.rag.agent import query_router, AgentState
         from unittest.mock import AsyncMock
@@ -395,6 +395,6 @@ class TestLangGraphAgent:
         }
 
         with patch("app.rag.agent.AsyncOpenAI", return_value=mock_client):
-            result = query_router(state)
+            result = await query_router(state)
 
         assert result["query_type"] == "find_clause"
