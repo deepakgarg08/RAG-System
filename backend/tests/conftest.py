@@ -1,7 +1,9 @@
 """
 conftest.py — Shared pytest fixtures for the entire test suite.
 Provides: mock_openai_client, temp_chroma_db, sample_contract_path,
-and mock_storage. All fixtures ensure tests run fully offline.
+mock_storage, and integration fixtures (mock_openai_embedding,
+temp_chroma_dir, nda_contract_path, german_contract_path,
+sample_contracts_dir). All fixtures ensure tests run fully offline.
 """
 import os
 import pytest
@@ -178,3 +180,158 @@ def mock_azure_search():
         instance.upload_documents.return_value = [MagicMock(succeeded=True)]
         instance.get_document_count.return_value = 10
         yield instance
+
+
+# ---------------------------------------------------------------------------
+# Integration test fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def mock_openai_embedding(monkeypatch):
+    """Mock all OpenAI embedding calls for integration tests.
+
+    Patches both the module-level get_embedding in chroma_loader (used by
+    ChromaLoader.load) and the OpenAI constructor (used by ContractRetriever
+    via EmbeddingService). Resets the EmbeddingService singleton so every
+    test gets a fresh mock client.
+    """
+    import app.rag.embeddings as emb_module
+
+    # Reset singleton so new EmbeddingService() picks up the mock client
+    monkeypatch.setattr(emb_module, "_service", None)
+
+    fake_vector = [1.0 / 1536] * 1536
+
+    fake_item = MagicMock()
+    fake_item.embedding = fake_vector
+    fake_item.index = 0
+    fake_response = MagicMock()
+    fake_response.data = [fake_item]
+    mock_client = MagicMock()
+    mock_client.embeddings.create.return_value = fake_response
+
+    with patch("app.rag.embeddings.OpenAI", return_value=mock_client), \
+         patch("app.etl.loaders.chroma_loader.get_embedding", return_value=fake_vector):
+        yield mock_client
+
+
+@pytest.fixture
+def temp_chroma_dir(tmp_path, monkeypatch):
+    """Provide isolated temp directories for ChromaDB and file uploads.
+
+    Patches both chroma_persist_path and upload_dir on the settings singleton
+    so IngestionPipeline, ChromaLoader, ContractRetriever, and LocalStorage
+    all use a clean temp directory with no cross-test pollution.
+    """
+    from app.config import settings
+
+    chroma_path = str(tmp_path / "chroma")
+    upload_path = str(tmp_path / "uploads")
+    (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(settings, "chroma_persist_path", chroma_path)
+    monkeypatch.setattr(settings, "upload_dir", upload_path)
+    yield chroma_path
+
+
+@pytest.fixture
+def nda_contract_path(tmp_path) -> Path:
+    """Create a real text-based PDF from the NDA sample contract.
+
+    Uses PyMuPDF (fitz) to produce a genuine text PDF that PDFExtractor can
+    read with get_text() — not the minimal shell PDF used in unit tests.
+    """
+    import fitz
+
+    txt_path = (
+        Path(__file__).parent / "sample_contracts" / "contract_nda_techcorp_2023.txt"
+    )
+    text = txt_path.read_text(encoding="utf-8")
+
+    doc = fitz.open()
+    # Split into ~60-line pages so text stays within page bounds
+    lines = text.split("\n")
+    lines_per_page = 60
+    for i in range(0, len(lines), lines_per_page):
+        page = doc.new_page()
+        page.insert_text(
+            (50, 50),
+            "\n".join(lines[i : i + lines_per_page]),
+            fontname="helv",
+            fontsize=9,
+        )
+
+    pdf_path = tmp_path / "contract_nda.pdf"
+    doc.save(str(pdf_path))
+    doc.close()
+    return pdf_path
+
+
+@pytest.fixture
+def german_contract_path(tmp_path) -> Path:
+    """Create a real text-based PDF from the German Dienstleistungsvertrag sample."""
+    import fitz
+
+    txt_path = (
+        Path(__file__).parent
+        / "sample_contracts"
+        / "vertrag_dienstleistung_mueller_2024.txt"
+    )
+    text = txt_path.read_text(encoding="utf-8")
+
+    doc = fitz.open()
+    lines = text.split("\n")
+    lines_per_page = 60
+    for i in range(0, len(lines), lines_per_page):
+        page = doc.new_page()
+        page.insert_text(
+            (50, 50),
+            "\n".join(lines[i : i + lines_per_page]),
+            fontname="helv",
+            fontsize=9,
+        )
+
+    pdf_path = tmp_path / "vertrag_dienstleistung_mueller_2024.pdf"
+    doc.save(str(pdf_path))
+    doc.close()
+    return pdf_path
+
+
+@pytest.fixture
+def sample_contracts_dir(tmp_path) -> Path:
+    """Create PDFs for all 4 sample contracts in a temporary directory.
+
+    Returns the directory path so tests can glob for *.pdf files.
+    """
+    import fitz
+
+    contract_dir = tmp_path / "pdfs"
+    contract_dir.mkdir()
+
+    txt_files = [
+        "contract_nda_techcorp_2023.txt",
+        "contract_service_datasystems_2022.txt",
+        "vertrag_dienstleistung_mueller_2024.txt",
+        "contract_vendor_2023_no_termination.txt",
+    ]
+    src_dir = Path(__file__).parent / "sample_contracts"
+
+    for txt_name in txt_files:
+        text = (src_dir / txt_name).read_text(encoding="utf-8")
+        pdf_name = txt_name.replace(".txt", ".pdf")
+
+        doc = fitz.open()
+        lines = text.split("\n")
+        lines_per_page = 60
+        for i in range(0, len(lines), lines_per_page):
+            page = doc.new_page()
+            page.insert_text(
+                (50, 50),
+                "\n".join(lines[i : i + lines_per_page]),
+                fontname="helv",
+                fontsize=9,
+            )
+        doc.save(str(contract_dir / pdf_name))
+        doc.close()
+
+    return contract_dir

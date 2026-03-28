@@ -29,6 +29,7 @@ Simulate scanned contracts. To be added when OCR extractor tests are implemented
 | contract_service_datasystems_2022.txt | Service Agreement | English | **NO** | Yes (60 days notice) | Test "find missing GDPR clause" |
 | vertrag_dienstleistung_mueller_2024.txt | Dienstleistungsvertrag | **German** | Yes (DSGVO Art. 28) | Yes (3 Monate Frist) | Test German language detection |
 | contract_vendor_2023_no_termination.txt | Vendor Agreement | English | Yes (Art. 28) | **NO** | Test "find missing termination clause" |
+| scanned_vendor_agreement_2023.jpg | Vendor Agreement | English | Yes (Art. 28) | **NO** | Simulated scan for OCR extractor tests |
 
 ## Adding a New Test Contract
 Follow the steps in `.claude/skills/generate-test-contract.md`, then add a row
