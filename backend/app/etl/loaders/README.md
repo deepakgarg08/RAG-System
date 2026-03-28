@@ -39,5 +39,5 @@ In `pipeline.py`, the loader is selected here:
 #   Replace ChromaLoader with AzureLoader on the line below
 #   Azure AI Search adds hybrid search + enterprise RBAC
 # ============================================================
-loader = ChromaLoader(config)   # ← swap this line only
+self._loader = ChromaLoader()   # ← swap this line only
 ```

@@ -4,14 +4,22 @@
 All files in this folder are **entirely fictional** — generated for testing purposes only.
 They use made-up company names and do not represent any real legal agreements.
 
-## Two Categories
+## Important Note on File Types
 
-### Text files (`.txt`)
-Simulate typed/digital contracts. Used for ETL pipeline tests.
+The ETL pipeline (`IngestionPipeline`) processes `.pdf`, `.jpg`, `.jpeg`, and `.png` files
+only. The `.txt` contracts here are **reference content** — they contain realistic contract
+language used to generate test PDFs or for manual review.
 
-### JPEG scans (`.jpg`)
-Simulate scanned contracts. Used for OCR extractor tests.
-These will be added in a future prompt.
+For automated pipeline tests, the `sample_pdf_path` fixture in `conftest.py` generates a
+minimal valid PDF in a temp directory. To test with richer text, write a `.txt` contract
+here, then convert it to PDF for the `sample_contracts/` folder.
+
+### Text files (`.txt`) — reference content
+Realistic contract text in English and German. Used as the source material when
+generating test PDF fixtures or verifying language detection logic.
+
+### JPEG scans (`.jpg`) — OCR tests
+Simulate scanned contracts. To be added when OCR extractor tests are implemented.
 
 ## Contract Index
 

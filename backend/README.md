@@ -9,14 +9,16 @@ about them — the AI reads the documents and gives grounded answers with contra
 | Tool | Version | Purpose | AWS Equivalent |
 |---|---|---|---|
 | FastAPI | 0.111.0 | HTTP API framework | API Gateway + Lambda |
-| LangGraph | 0.1.5 | AI agent orchestration | Bedrock Agents |
-| OpenAI GPT-4o | latest | Answer generation | Bedrock Claude/Titan |
-| OpenAI text-embedding-3-small | latest | Vector embeddings | Bedrock Titan Embeddings |
-| ChromaDB | 0.5.3 | Vector store (demo) | OpenSearch / Kendra |
-| PyMuPDF | 1.24.5 | PDF text extraction | Textract |
-| Tesseract | 0.3.10 | OCR for scanned images | Textract |
+| LangGraph | 1.1.3 | AI agent orchestration | Bedrock Agents / Step Functions |
+| LangChain | 1.2.13 | Text splitting, LLM utilities | — |
+| OpenAI GPT-4o | via openai 2.30.0 | Answer generation | Bedrock Claude/Titan |
+| OpenAI text-embedding-3-small | via openai 2.30.0 | Vector embeddings | Bedrock Titan Embeddings |
+| ChromaDB | 1.5.5 | Vector store (demo) | OpenSearch / Kendra |
+| PyMuPDF | 1.27.2.2 | PDF text extraction | Textract |
+| pytesseract | 0.3.13 | OCR for scanned images | Textract |
 | LangDetect | 1.0.9 | Language detection | Comprehend |
-| Pydantic | 2.7.4 | Request/response validation | — |
+| Pydantic | 2.12.5 | Request/response validation | — |
+| pydantic-settings | 2.13.1 | Config from .env | SSM Parameter Store |
 
 ## Folder Map
 
