@@ -4,5 +4,81 @@ Stores embedded chunks in a local ChromaDB collection persisted to disk.
 Zero configuration required beyond CHROMA_PERSIST_PATH in config.
 See loaders/README.md for the production swap to Azure AI Search.
 """
+import logging
 
-# TODO: implemented in Prompt 1B
+import chromadb
+
+from app.config import settings
+from app.etl.loaders.base import BaseLoader
+from app.rag.embeddings import get_embedding
+
+logger = logging.getLogger(__name__)
+
+# ============================================================
+# DEMO MODE: ChromaDB — zero config, persists to local disk
+# PRODUCTION SWAP → Azure AI Search (AWS: OpenSearch / Kendra):
+#   Replace ChromaLoader with AzureSearchLoader in pipeline.py
+#   Azure AI Search adds hybrid search + enterprise RBAC + scale
+#   See .claude/skills/swap-to-azure.md for step-by-step migration
+# ============================================================
+
+_COLLECTION_NAME = "riverty_contracts"
+
+
+class ChromaLoader(BaseLoader):
+    """Loads document chunks into a local ChromaDB vector store."""
+
+    def __init__(self) -> None:
+        """Initialise ChromaDB client and get/create the contracts collection."""
+        self._client = chromadb.PersistentClient(path=settings.chroma_persist_path)
+        self._collection = self._client.get_or_create_collection(
+            name=_COLLECTION_NAME,
+            metadata={"hnsw:space": "cosine"},
+        )
+        logger.info(
+            "ChromaLoader: connected to collection '%s' at %s (%d docs)",
+            _COLLECTION_NAME,
+            settings.chroma_persist_path,
+            self._collection.count(),
+        )
+
+    def load(self, chunks: list[dict]) -> int:
+        """Embed each chunk and store it in ChromaDB.
+
+        Args:
+            chunks: List of chunk dicts with 'text' and 'metadata' keys
+                    (output of DocumentChunker.chunk()).
+
+        Returns:
+            Number of chunks successfully stored.
+        """
+        stored = 0
+
+        for i, chunk in enumerate(chunks):
+            source = chunk["metadata"].get("source_file", "unknown")
+            chunk_idx = chunk["metadata"].get("chunk_index", i)
+            doc_id = f"{source}_chunk_{chunk_idx}"
+
+            embedding = get_embedding(chunk["text"])
+
+            self._collection.upsert(
+                ids=[doc_id],
+                embeddings=[embedding],
+                documents=[chunk["text"]],
+                metadatas=[chunk["metadata"]],
+            )
+            stored += 1
+
+            if stored % 10 == 0:
+                logger.info("ChromaLoader: stored %d / %d chunks", stored, len(chunks))
+
+        logger.info(
+            "ChromaLoader: load complete — %d chunks stored (total in collection: %d)",
+            stored,
+            self._collection.count(),
+        )
+        return stored
+
+    def get_document_count(self) -> int:
+        """Return the total number of chunks in the ChromaDB collection."""
+        return self._collection.count()

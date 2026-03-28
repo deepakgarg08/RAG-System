@@ -1,7 +1,20 @@
 """
 base.py — Abstract base class for all vector store loaders.
-Defines the BaseLoader interface: load(chunks, embeddings) and
-get_collection_count(). Enforces the Strategy Pattern for the loader layer.
+Strategy Pattern: ChromaDB for demo, Azure AI Search for production.
+Only the loader class needs to change — pipeline.py stays the same.
 """
+from abc import ABC, abstractmethod
 
-# TODO: implemented in Prompt 1B
+
+class BaseLoader(ABC):
+    """Abstract base for all vector store loaders."""
+
+    @abstractmethod
+    def load(self, chunks: list[dict]) -> int:
+        """Load chunks into vector store. Returns number of chunks stored."""
+        pass
+
+    @abstractmethod
+    def get_document_count(self) -> int:
+        """Return total number of chunks currently stored."""
+        pass

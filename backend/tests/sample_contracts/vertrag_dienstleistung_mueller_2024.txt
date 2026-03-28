@@ -1,0 +1,117 @@
+DIENSTLEISTUNGSVERTRAG
+
+Dieser Dienstleistungsvertrag ("Vertrag") wird am 1. Februar 2024 geschlossen zwischen:
+
+Müller Consulting GmbH, eingetragen im Handelsregister des Amtsgerichts München unter
+HRB 234567, mit Sitz in der Leopoldstraße 31, 80802 München, Deutschland
+("Auftragnehmer"),
+
+und
+
+Riverty GmbH, eingetragen im Handelsregister des Amtsgerichts Düsseldorf unter
+HRB 78901, mit Sitz in der Olof-Palme-Straße 4, 40882 Ratingen, Deutschland
+("Auftraggeber").
+
+
+1. VERTRAGSGEGENSTAND
+
+1.1 Der Auftragnehmer verpflichtet sich, dem Auftraggeber folgende Beratungsleistungen
+im Bereich Finanzprozessoptimierung zu erbringen ("Dienstleistungen"):
+(a) Analyse und Optimierung von Inkassoprozessen;
+(b) Implementierungsberatung für digitale Zahlungssysteme;
+(c) Schulung der Mitarbeiter des Auftraggebers.
+
+1.2 Die Einzelheiten der zu erbringenden Leistungen sind in Anlage A zu diesem Vertrag
+festgelegt, die Bestandteil dieses Vertrages ist.
+
+1.3 Der Auftragnehmer erbringt die Dienstleistungen eigenständig und nach seinen
+fachlichen Kenntnissen und Fähigkeiten, die den allgemein anerkannten Standards des
+Beratungsmarktes entsprechen.
+
+
+2. VERGÜTUNG UND ZAHLUNGSBEDINGUNGEN
+
+2.1 Der Auftraggeber zahlt dem Auftragnehmer für die erbrachten Dienstleistungen ein
+monatliches Pauschalhonorar von EUR 8.500,00 (achttausendfünfhundert Euro) zuzüglich
+der gesetzlichen Umsatzsteuer.
+
+2.2 Der Auftragnehmer stellt dem Auftraggeber monatlich eine ordnungsgemäße Rechnung
+aus. Rechnungen sind innerhalb von vierzehn (14) Tagen nach Rechnungseingang zu
+begleichen.
+
+2.3 Bei Zahlungsverzug ist der Auftragnehmer berechtigt, Verzugszinsen in Höhe von
+neun Prozentpunkten über dem Basiszinssatz gemäß § 288 BGB zu berechnen.
+
+
+3. DATENSCHUTZ UND DSGVO
+
+3.1 Die Parteien verpflichten sich, bei der Erfüllung dieses Vertrages die Bestimmungen
+der Verordnung (EU) 2016/679 des Europäischen Parlaments und des Rates vom 27. April
+2016 (Datenschutz-Grundverordnung, "DSGVO") sowie des Bundesdatenschutzgesetzes
+("BDSG") in der jeweils geltenden Fassung einzuhalten.
+
+3.2 Sofern der Auftragnehmer im Rahmen der Dienstleistungserbringung personenbezogene
+Daten im Auftrag des Auftraggebers verarbeitet, gilt er im Sinne von Artikel 28 DSGVO
+als Auftragsverarbeiter. In diesem Fall schließen die Parteien einen gesonderten
+Auftragsverarbeitungsvertrag gemäß Artikel 28 Absatz 3 DSGVO ab.
+
+3.3 Der Auftragnehmer verpflichtet sich, geeignete technische und organisatorische
+Maßnahmen gemäß Artikel 32 DSGVO zu ergreifen, um ein dem Risiko angemessenes
+Schutzniveau zu gewährleisten. Dazu gehören insbesondere:
+(a) die Pseudonymisierung und Verschlüsselung personenbezogener Daten;
+(b) die Fähigkeit, die Vertraulichkeit, Integrität, Verfügbarkeit und Belastbarkeit
+der Verarbeitungssysteme dauerhaft sicherzustellen;
+(c) ein Verfahren zur regelmäßigen Überprüfung, Bewertung und Evaluierung der
+Wirksamkeit der technischen und organisatorischen Maßnahmen.
+
+3.4 Im Falle einer Datenschutzverletzung im Sinne von Artikel 4 Nummer 12 DSGVO ist
+der Auftragnehmer verpflichtet, den Auftraggeber unverzüglich, spätestens jedoch
+innerhalb von 24 Stunden nach Bekanntwerden, zu informieren.
+
+
+4. VERTRAULICHKEIT
+
+4.1 Beide Parteien verpflichten sich, alle im Rahmen dieses Vertrages erlangten
+vertraulichen Informationen der jeweils anderen Partei streng vertraulich zu behandeln
+und nicht an Dritte weiterzugeben.
+
+4.2 Diese Geheimhaltungsverpflichtung gilt auch nach Beendigung des Vertrages für die
+Dauer von fünf (5) Jahren.
+
+
+5. LAUFZEIT UND KÜNDIGUNG
+
+5.1 Dieser Vertrag beginnt am 1. Februar 2024 und wird für eine Mindestlaufzeit von
+zwölf (12) Monaten geschlossen ("Mindestlaufzeit").
+
+5.2 Nach Ablauf der Mindestlaufzeit verlängert sich der Vertrag automatisch um jeweils
+weitere zwölf (12) Monate, sofern er nicht von einer der Parteien mit einer Frist von
+drei (3) Monaten zum Ende des jeweiligen Vertragsjahres schriftlich gekündigt wird.
+("Kündigungsklausel")
+
+5.3 Das Recht zur außerordentlichen Kündigung aus wichtigem Grund bleibt unberührt.
+Ein wichtiger Grund liegt insbesondere vor, wenn eine Partei ihre wesentlichen
+Vertragspflichten schwerwiegend verletzt und diese Verletzung nicht innerhalb von
+dreißig (30) Tagen nach schriftlicher Abmahnung behebt.
+
+5.4 Jede Kündigung bedarf der Schriftform und ist per Einschreiben mit Rückschein zu
+übermitteln.
+
+
+6. ANWENDBARES RECHT UND GERICHTSSTAND
+
+6.1 Dieser Vertrag unterliegt dem Recht der Bundesrepublik Deutschland unter Ausschluss
+des UN-Kaufrechts (CISG).
+
+6.2 Gerichtsstand für alle Streitigkeiten aus oder im Zusammenhang mit diesem Vertrag
+ist Düsseldorf, sofern gesetzlich zulässig.
+
+
+UNTERSCHRIFTEN
+
+Auftragnehmer: Müller Consulting GmbH     Auftraggeber: Riverty GmbH
+
+______________________                    ______________________
+Name: Prof. Dr. Heinrich Müller           Name: Anna Bergström
+Funktion: Geschäftsführer                 Funktion: Leiterin Rechtsabteilung
+Datum: 1. Februar 2024                    Datum: 1. Februar 2024

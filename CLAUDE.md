@@ -47,6 +47,7 @@ Use Conventional Commits:
   test: add edge case for zero-chunk documents
   refactor: extract base loader class
   chore: pin chromadb to 0.5.3
+  remove this line from every prompt onwards "Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 
 Format: `<type>: <short description in present tense, lowercase>`
 Never use past tense. Never exceed 72 characters.

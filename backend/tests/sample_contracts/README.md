@@ -17,10 +17,10 @@ These will be added in a future prompt.
 
 | Filename | Type | Language | Has GDPR | Has Termination | Purpose |
 |---|---|---|---|---|---|
-| contract_nda_techcorp_2023.txt | NDA | English | Yes | Yes | Base happy path test |
-| contract_service_datasystems_2022.txt | Service | English | NO | Yes | Test "find missing GDPR" |
-| vertrag_dienstleistung_mueller_2024.txt | Service | German | Yes (DSGVO) | Yes | Test German language |
-| contract_vendor_2023_no_termination.txt | Vendor | English | Yes | NO | Test "find missing termination" |
+| contract_nda_techcorp_2023.txt | NDA | English | Yes (Art. 28) | Yes (30 days notice) | Base happy path test |
+| contract_service_datasystems_2022.txt | Service Agreement | English | **NO** | Yes (60 days notice) | Test "find missing GDPR clause" |
+| vertrag_dienstleistung_mueller_2024.txt | Dienstleistungsvertrag | **German** | Yes (DSGVO Art. 28) | Yes (3 Monate Frist) | Test German language detection |
+| contract_vendor_2023_no_termination.txt | Vendor Agreement | English | Yes (Art. 28) | **NO** | Test "find missing termination clause" |
 
 ## Adding a New Test Contract
 Follow the steps in `.claude/skills/generate-test-contract.md`, then add a row

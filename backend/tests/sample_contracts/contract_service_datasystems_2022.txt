@@ -1,0 +1,123 @@
+SERVICE AGREEMENT
+
+This Service Agreement ("Agreement") is entered into as of January 10, 2022,
+by and between:
+
+DataSystems Ltd, a company incorporated in England and Wales under company number
+09871234, with its registered office at 12 Canary Wharf, Level 4, London, E14 5AB,
+United Kingdom ("Provider"),
+
+and
+
+Riverty GmbH, a company incorporated under the laws of Germany, with its registered
+office at Olof-Palme-Straße 4, 40882 Ratingen, Germany ("Client").
+
+
+1. SCOPE OF SERVICES
+
+1.1 The Provider agrees to provide the Client with cloud-based data analytics and
+reporting services ("Services") as described in Schedule A attached hereto.
+
+1.2 The Provider shall perform the Services in a professional and workmanlike manner,
+consistent with generally accepted industry standards.
+
+1.3 The Provider shall assign qualified personnel to perform the Services and shall
+not subcontract any material portion of the Services without the prior written consent
+of the Client.
+
+
+2. PAYMENT TERMS
+
+2.1 In consideration of the Services, the Client shall pay the Provider a monthly fee
+of EUR 5,000 (five thousand euros) ("Monthly Fee").
+
+2.2 The Provider shall issue invoices on the first business day of each calendar month
+for the Services to be rendered during that month. All invoices are payable within
+thirty (30) days of the invoice date ("Net 30").
+
+2.3 In the event of a late payment, the Provider reserves the right to charge interest
+on the outstanding amount at the statutory rate applicable under the Late Payment of
+Commercial Debts Act, calculated from the due date until the date of actual payment.
+
+2.4 All fees are stated exclusive of value-added tax (VAT) or any other applicable taxes,
+which shall be payable by the Client in addition to the fees at the applicable rate.
+
+
+3. INTELLECTUAL PROPERTY
+
+3.1 All intellectual property rights in any deliverables, reports, or materials created
+by the Provider in the course of providing the Services ("Work Product") shall vest in
+the Client upon full payment of all fees due.
+
+3.2 The Provider retains all intellectual property rights in its pre-existing proprietary
+tools, methodologies, and know-how used in providing the Services ("Background IP").
+The Provider grants the Client a non-exclusive, non-transferable licence to use the
+Background IP solely to the extent necessary to utilise the Work Product.
+
+
+4. CONFIDENTIALITY
+
+4.1 Each Party agrees to keep confidential all non-public information received from the
+other Party in connection with this Agreement and to use such information solely for
+the purpose of performing its obligations hereunder.
+
+4.2 These confidentiality obligations shall survive termination of this Agreement for a
+period of three (3) years.
+
+
+5. WARRANTIES AND REPRESENTATIONS
+
+5.1 The Provider represents and warrants that: (a) it has full authority to enter into
+this Agreement; (b) the Services will be performed in compliance with all applicable
+laws and regulations; and (c) the Services will not infringe the intellectual property
+rights of any third party.
+
+5.2 The Client represents and warrants that it has full authority to enter into this
+Agreement and to use the Services as contemplated herein.
+
+
+6. LIMITATION OF LIABILITY
+
+6.1 Neither Party shall be liable to the other for any indirect, incidental, special,
+or consequential damages arising out of or in connection with this Agreement.
+
+6.2 The total aggregate liability of either Party under this Agreement shall not exceed
+the total fees paid or payable by the Client in the twelve (12) months preceding the
+event giving rise to the claim.
+
+
+7. TERM AND TERMINATION
+
+7.1 This Agreement shall commence on the date first written above and shall continue
+in force for an initial period of twelve (12) months ("Initial Term").
+
+7.2 Following the Initial Term, this Agreement shall automatically renew for successive
+twelve-month periods unless either Party gives the other not less than sixty (60) days
+written notice of its intention not to renew prior to the end of the then-current term.
+
+7.3 Either Party may terminate this Agreement immediately upon written notice if the
+other Party materially breaches this Agreement and fails to cure such breach within
+thirty (30) days after receiving written notice thereof.
+
+7.4 Upon termination, the Client shall pay all undisputed fees accrued up to the
+effective date of termination.
+
+
+8. GOVERNING LAW
+
+8.1 This Agreement shall be governed by and construed in accordance with the laws of
+England and Wales.
+
+8.2 The Parties submit to the exclusive jurisdiction of the courts of England and Wales
+for the resolution of any disputes arising out of this Agreement.
+
+
+IN WITNESS WHEREOF, the Parties have executed this Agreement as of the date first
+written above.
+
+DataSystems Ltd                          Riverty GmbH
+
+______________________                   ______________________
+Name: James Hartwell                     Name: Anna Bergström
+Title: Managing Director                 Title: Head of Legal Affairs
+Date: January 10, 2022                   Date: January 10, 2022
