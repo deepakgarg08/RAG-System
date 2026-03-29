@@ -21,6 +21,7 @@ cd "$SCRIPT_DIR"
 if   [ -f "../.venv/bin/activate" ]; then source "../.venv/bin/activate"
 elif [ -f ".venv/bin/activate" ];    then source ".venv/bin/activate"
 elif [ -f "venv/bin/activate" ];     then source "venv/bin/activate"
+elif [ -f "riverty/bin/activate" ];  then source "riverty/bin/activate"
 else
   echo "ERROR: No virtual environment found."
   echo "Run: python -m venv venv && pip install -r requirements.txt"
@@ -188,7 +189,24 @@ while true; do
   fi
 
   python - <<PYEOF
-import asyncio
+import asyncio, logging
+# Q&A mode: suppress INFO logs to terminal — write them to rag.log instead
+logging.basicConfig(
+    level=logging.WARNING,
+    handlers=[
+        logging.StreamHandler(),                          # WARNING+ to terminal
+        logging.FileHandler("rag.log", encoding="utf-8"), # INFO+ to file
+    ]
+)
+logging.getLogger().setLevel(logging.WARNING)
+logging.getLogger("app").setLevel(logging.INFO)
+# redirect app.* INFO to file only
+for h in logging.getLogger().handlers:
+    if isinstance(h, logging.FileHandler):
+        h.setLevel(logging.DEBUG)
+    else:
+        h.setLevel(logging.WARNING)
+
 from app.rag.retriever import ContractRetriever
 from app.rag.agent import stream_query
 

@@ -120,26 +120,86 @@ All subsequent runs are fully offline.
 
 ---
 
-## Running the Pipeline
+## Shell Scripts Reference
 
-Place your `.pdf`, `.jpg`, or `.png` files in `uploads/`, then:
+Three scripts are the main entry points. All are run from the **project root** or from inside `backend/`. They auto-detect any of these virtual environment names: `.venv`, `venv`, `riverty`.
+
+---
+
+### `run_pipeline.sh` — Ingest documents + Q&A
+
+Use this when you have **new documents to add** to the system.
 
 ```bash
-# Full pipeline — ETL + interactive Q&A loop
-bash run_pipeline.sh
-
-# Ingest only (no Q&A)
-bash run_pipeline.sh --ingest-only
-
-# Single question then exit
-bash run_pipeline.sh --query "Does this contract have a GDPR clause?"
+# From project root
+bash backend/run_pipeline.sh               # ingest all files in uploads/ + interactive Q&A
+bash backend/run_pipeline.sh --ingest-only # ingest only, skip Q&A
+bash backend/run_pipeline.sh --query "Does this contract have a GDPR clause?"  # ingest + one question then exit
 ```
 
-The pipeline:
-1. Detects content type (Q&A / legal / narrative) and chunks accordingly
-2. Embeds all chunks with bge-m3 in one batch pass
-3. Stores vectors in `./chroma_db/`
-4. Drops into an interactive Q&A loop (or answers the `--query` and exits)
+What it does step by step:
+1. **ETL** — reads every `.pdf` / `.jpg` / `.jpeg` / `.png` from `uploads/`, extracts text page by page, detects content type (Q&A / legal / narrative), chunks accordingly, embeds with bge-m3 in one batch, stores in `chroma_db/`
+2. **ChromaDB stats** — prints how many chunks are now stored and previews the first 5
+3. **Q&A** — drops into an interactive question loop (or runs the `--query` one-shot and exits)
+
+> Re-run this whenever you add new files to `uploads/`. Existing chunks are upserted (not duplicated).
+
+---
+
+### `run_rag.sh` — Q&A only (no ingest)
+
+Use this for **every normal session** after documents are already ingested.
+
+```bash
+bash backend/run_rag.sh                              # interactive loop
+bash backend/run_rag.sh --query "termination clause" # one question then exit
+```
+
+What it does:
+- Skips ETL entirely — reads only from the existing `chroma_db/`
+- Embeds your question with bge-m3, retrieves the most relevant chunks, sends to GPT-4o
+- Prints retrieved chunk references (file, chunk index, similarity score) then the answer
+- Shows detailed source attribution: `• filename — page N, chunk X/Y (relevance: 0.87)`
+
+**Logs:** Internal INFO/DEBUG logs (retrieval scores, LangGraph node steps) are written to `backend/rag.log` only — the terminal shows only the answer. To monitor internals in real time:
+```bash
+tail -f backend/rag.log
+```
+
+---
+
+### `run_tests.sh` — Run the full test suite
+
+```bash
+bash backend/run_tests.sh
+```
+
+What it does:
+- Activates the venv and sets a fake `OPENAI_API_KEY` so tests run fully offline
+- Runs all 88 tests with `pytest -v --tb=short`
+- Generates a coverage report in `backend/htmlcov/index.html`
+
+```bash
+# Manual equivalent (from inside backend/)
+OPENAI_API_KEY=test-key pytest tests/ -v --cov=app --cov-report=html
+open htmlcov/index.html       # macOS
+xdg-open htmlcov/index.html   # Linux
+```
+
+---
+
+### Typical workflow
+
+```bash
+# First time — or when adding new documents
+bash backend/run_pipeline.sh --ingest-only
+
+# Every session after that
+bash backend/run_rag.sh
+
+# After code changes
+bash backend/run_tests.sh
+```
 
 ---
 
@@ -155,23 +215,6 @@ uvicorn app.main:app --reload --port 8000
 | `POST /api/ingest` | Upload a PDF/JPG/PNG |
 | `POST /api/query` | Ask a question (SSE stream) |
 | `GET  /docs` | Swagger interactive API docs |
-
----
-
-## Running Tests
-
-```bash
-# All tests via script (sets fake API key automatically)
-bash run_tests.sh
-
-# Or manually
-OPENAI_API_KEY=test-key pytest tests/ -v
-
-# With coverage
-OPENAI_API_KEY=test-key pytest tests/ -v --cov=app --cov-report=html
-open htmlcov/index.html        # macOS
-xdg-open htmlcov/index.html    # Linux
-```
 
 ---
 

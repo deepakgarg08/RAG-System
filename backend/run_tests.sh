@@ -11,12 +11,10 @@ cd "$SCRIPT_DIR"
 # ---------------------------------------------------------------------------
 # Activate virtual environment (try both common locations)
 # ---------------------------------------------------------------------------
-if [ -f ".venv/bin/activate" ]; then
-    source .venv/bin/activate
-elif [ -f "../.venv/bin/activate" ]; then
-    source ../.venv/bin/activate
-elif [ -f "venv/bin/activate" ]; then
-    source venv/bin/activate
+if   [ -f ".venv/bin/activate" ];    then source .venv/bin/activate
+elif [ -f "../.venv/bin/activate" ]; then source ../.venv/bin/activate
+elif [ -f "venv/bin/activate" ];     then source venv/bin/activate
+elif [ -f "riverty/bin/activate" ];  then source riverty/bin/activate
 else
     echo "ERROR: No virtual environment found. Run: python -m venv venv && pip install -r requirements.txt"
     exit 1
