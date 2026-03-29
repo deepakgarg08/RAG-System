@@ -25,8 +25,9 @@ fi
 _LOGGING_SETUP='
 import logging
 # Terminal: WARNING+ only (no noise during Q&A)
-# File rag.log: full DEBUG — tail -f backend/rag.log to monitor internals
-_file_handler = logging.FileHandler("rag.log", encoding="utf-8")
+# File logs/rag.log: full DEBUG — tail -f backend/logs/rag.log to monitor internals
+import os; os.makedirs("logs", exist_ok=True)
+_file_handler = logging.FileHandler("logs/rag.log", encoding="utf-8")
 _file_handler.setLevel(logging.DEBUG)
 _file_handler.setFormatter(logging.Formatter("%(asctime)s [%(name)s] %(levelname)s %(message)s"))
 _stream_handler = logging.StreamHandler()
@@ -81,7 +82,7 @@ echo ""
 echo "============================================================"
 echo "  Riverty RAG — Interactive Q&A"
 echo "  Type your question and press Enter. Type 'exit' to quit."
-echo "  (Internal logs → backend/rag.log)"
+echo "  (Internal logs → backend/logs/rag.log)"
 echo "============================================================"
 echo ""
 

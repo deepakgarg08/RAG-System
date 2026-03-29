@@ -189,13 +189,14 @@ while true; do
   fi
 
   python - <<PYEOF
-import asyncio, logging
-# Q&A mode: suppress INFO logs to terminal — write them to rag.log instead
+import asyncio, logging, os
+os.makedirs("logs", exist_ok=True)
+# Q&A mode: suppress INFO logs to terminal — write them to logs/rag.log instead
 logging.basicConfig(
     level=logging.WARNING,
     handlers=[
         logging.StreamHandler(),                          # WARNING+ to terminal
-        logging.FileHandler("rag.log", encoding="utf-8"), # INFO+ to file
+        logging.FileHandler("logs/rag.log", encoding="utf-8"), # INFO+ to file
     ]
 )
 logging.getLogger().setLevel(logging.WARNING)

@@ -18,6 +18,9 @@ uploads/
 htmlcov/
 .coverage
 
+# Runtime logs (kept in logs/ folder, not committed)
+backend/logs/*.log
+
 # Node
 node_modules/
 dist/

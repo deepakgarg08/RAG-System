@@ -161,9 +161,9 @@ What it does:
 - Prints retrieved chunk references (file, chunk index, similarity score) then the answer
 - Shows detailed source attribution: `• filename — page N, chunk X/Y (relevance: 0.87)`
 
-**Logs:** Internal INFO/DEBUG logs (retrieval scores, LangGraph node steps) are written to `backend/rag.log` only — the terminal shows only the answer. To monitor internals in real time:
+**Logs:** Internal INFO/DEBUG logs (retrieval scores, LangGraph node steps) are written to `backend/logs/rag.log` only — the terminal shows only the answer. To monitor internals in real time:
 ```bash
-tail -f backend/rag.log
+tail -f backend/logs/rag.log
 ```
 
 ---
