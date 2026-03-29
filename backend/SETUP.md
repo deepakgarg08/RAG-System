@@ -240,25 +240,33 @@ bash run_pipeline.sh --ingest-only
 
 ## Docker
 
+The backend has a single `Dockerfile` — no Compose file. Run commands use `docker` directly.
+Give the container a name (`riverty-backend`) so the exec/logs/stop commands work consistently.
+
 ```bash
-# Build and start
-docker compose up --build
+# Build
+docker build -t riverty-backend ./backend
 
-# Background
-docker compose up --build -d
+# Start (foreground)
+docker run --name riverty-backend --env-file backend/.env \
+  -p 8000:8000 riverty-backend
 
-# Stop
-docker compose down
+# Start (background)
+docker run -d --name riverty-backend --env-file backend/.env \
+  -p 8000:8000 riverty-backend
+
+# Stop and remove
+docker stop riverty-backend && docker rm riverty-backend
 
 # Copy a contract into the container and ingest
-docker compose cp your_contract.pdf backend:/app/uploads/
-docker compose exec backend bash run_pipeline.sh --ingest-only
+docker cp your_contract.pdf riverty-backend:/app/uploads/
+docker exec riverty-backend bash run_pipeline.sh --ingest-only
 
 # Clear ChromaDB inside Docker
-docker compose exec backend rm -rf chroma_db/
+docker exec riverty-backend rm -rf chroma_db/
 
 # View logs
-docker compose logs -f backend
+docker logs -f riverty-backend
 ```
 
 ---
