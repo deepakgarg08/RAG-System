@@ -48,6 +48,7 @@ Use Conventional Commits:
   refactor: extract base loader class
   chore: pin chromadb to 0.5.3
   remove this line from every prompt onwards "Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+  Provide multi line commit messages when necessary, but always start with a concise summary line that follows the format above.
 
 Format: `<type>: <short description in present tense, lowercase>`
 Never use past tense. Never exceed 72 characters.
@@ -70,3 +71,9 @@ Always read README.md before editing files in:
 - backend/app/api/routes/ — thin HTTP layer only, no logic
 - backend/app/storage/ — local vs Azure Blob swap point
 - .claude/skills/ — reusable instruction sets for common tasks
+
+## Final Notes
+- After implementing a new feature or making a significant change:
+  run all tests 
+  update documentation before committing
+  Update local README.md if necessary, but also consider if a new ADR is warranted for architectural decisions.

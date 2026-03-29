@@ -54,9 +54,9 @@ class IngestionPipeline:
 
         Steps:
             1. Detect file extension and select extractor
-            2. Extract raw text
-            3. Clean text and detect language
-            4. Chunk text with metadata
+            2. Extract raw text (returns list of page dicts)
+            3. Clean each page's text and detect document language
+            4. Chunk with content-aware strategy (Q&A / legal / narrative)
             5. Load chunks into vector store
 
         Args:
@@ -89,27 +89,38 @@ class IngestionPipeline:
             )
 
         try:
-            # --- Step 1: Extract ---
+            # --- Step 1: Extract — returns list of {"page_number": int, "text": str} ---
             extractor_class = EXTRACTOR_REGISTRY[extension]
             extractor = extractor_class()
             logger.info("Pipeline: extracting %s with %s", filename, extractor_class.__name__)
-            raw_text = extractor.extract(file_path)
-            result["chars_extracted"] = len(raw_text)
-            logger.info("Pipeline: extracted %d chars from %s", len(raw_text), filename)
+            pages = extractor.extract(file_path)
+            result["chars_extracted"] = sum(len(p["text"]) for p in pages)
+            logger.info(
+                "Pipeline: extracted %d chars across %d page(s) from %s",
+                result["chars_extracted"],
+                len(pages),
+                filename,
+            )
 
-            # --- Step 2: Clean ---
-            clean_text = self._cleaner.clean(raw_text)
-            language = self._cleaner.detect_language(clean_text)
+            # --- Step 2: Clean each page ---
+            cleaned_pages = [
+                {"page_number": p["page_number"], "text": self._cleaner.clean(p["text"])}
+                for p in pages
+            ]
+
+            # Detect language from combined text
+            combined_text = " ".join(p["text"] for p in cleaned_pages)
+            language = self._cleaner.detect_language(combined_text)
             result["language"] = language
-            logger.info("Pipeline: cleaned text (%d chars), language=%s", len(clean_text), language)
+            logger.info("Pipeline: language=%s for %s", language, filename)
 
-            # --- Step 3: Chunk ---
+            # --- Step 3: Chunk (content-aware: Q&A / legal / narrative) ---
             base_metadata = {
                 "source_file": filename,
                 "file_type": extension,
                 "language": language,
             }
-            chunks = self._chunker.chunk(clean_text, base_metadata)
+            chunks = self._chunker.chunk(cleaned_pages, base_metadata)
             result["chunks_created"] = len(chunks)
             logger.info("Pipeline: created %d chunks for %s", len(chunks), filename)
 

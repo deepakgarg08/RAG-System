@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # ============================================================
 # Riverty Contract Review — Backend Dockerfile
 # Multi-stage build: builder installs deps, runtime runs app
@@ -16,8 +18,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy and install Python dependencies
 COPY requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install --prefix=/install --no-cache-dir -r requirements.txt
+
+# ✅ Enable pip cache (DO NOT use --no-cache-dir)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip \
+    && pip install --prefix=/install -r requirements.txt
+
+# for production, we want to avoid copying the entire build context, 
+# so we install dependencies in a separate stage and copy only the installed packages to the runtime stage. 
+# This keeps the final image smaller and more secure by excluding build tools and source files.
+# RUN pip install --upgrade pip \
+#     && pip install --prefix=/install --no-cache-dir -r requirements.txt
+
 
 
 # ── Stage 2: Runtime ────────────────────────────────────────
@@ -44,7 +56,7 @@ RUN useradd --create-home --shell /bin/bash appuser \
     && chown -R appuser:appuser /app
 
 # Copy application code
-COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser . .
 
 # Switch to non-root user
 USER appuser

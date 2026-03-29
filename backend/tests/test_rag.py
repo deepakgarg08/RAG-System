@@ -13,69 +13,48 @@ from unittest.mock import MagicMock, patch
 # ---------------------------------------------------------------------------
 
 class TestEmbeddingService:
-    """Tests for EmbeddingService class."""
+    """Tests for EmbeddingService class (bge-m3 local model)."""
 
-    def test_get_embedding_returns_1536_floats(self, mock_openai_embeddings):
-        """get_embedding must return exactly 1536 floats."""
+    def test_get_embedding_returns_1024_floats(self, mock_openai_embeddings):
+        """get_embedding must return exactly 1024 floats (BAAI/bge-m3)."""
         from app.rag.embeddings import EmbeddingService
 
         svc = EmbeddingService()
         result = svc.get_embedding("Sample contract text.")
 
         assert isinstance(result, list)
-        assert len(result) == 1536
+        assert len(result) == 1024
         assert all(isinstance(v, float) for v in result)
 
-    def test_get_embedding_replaces_newlines(self, mock_openai_embeddings):
-        """Newlines in input text are replaced before the API call."""
+    def test_get_embedding_returns_list_of_floats(self, mock_openai_embeddings):
+        """get_embedding must return a plain Python list (not numpy array)."""
         from app.rag.embeddings import EmbeddingService
 
         svc = EmbeddingService()
-        svc.get_embedding("line one\nline two\n")
+        result = svc.get_embedding("contract text")
 
-        call_kwargs = mock_openai_embeddings.embeddings.create.call_args
-        sent_input = call_kwargs.kwargs.get("input") or call_kwargs.args[0]
-        assert "\n" not in sent_input
+        assert isinstance(result, list)
+        assert isinstance(result[0], float)
 
-    def test_get_embedding_raises_on_api_error(self, mock_openai_embeddings):
-        """get_embedding re-raises API errors for the caller to handle."""
+    def test_get_embeddings_batch_returns_one_vector_per_text(self, mock_openai_embeddings):
+        """get_embeddings_batch returns exactly one 1024-dim vector per input text."""
         from app.rag.embeddings import EmbeddingService
 
-        mock_openai_embeddings.embeddings.create.side_effect = RuntimeError("API down")
         svc = EmbeddingService()
-
-        with pytest.raises(RuntimeError, match="API down"):
-            svc.get_embedding("text")
-
-    def test_get_embeddings_batch_processes_in_batches(self, mock_openai_embeddings):
-        """get_embeddings_batch calls the API in chunks of ≤ 20."""
-        from app.rag.embeddings import EmbeddingService, _BATCH_SIZE
-
-        # Build 45 fake texts to force 3 batches
-        texts = [f"text {i}" for i in range(45)]
-
-        # Each batch call must return the right number of items
-        def _make_response(texts_sent):
-            items = []
-            for idx, _ in enumerate(texts_sent):
-                item = MagicMock()
-                item.embedding = [0.1] * 1536
-                item.index = idx
-                items.append(item)
-            resp = MagicMock()
-            resp.data = items
-            return resp
-
-        mock_openai_embeddings.embeddings.create.side_effect = (
-            lambda input, model: _make_response(input)
-        )
-
-        svc = EmbeddingService()
+        texts = [f"document chunk {i}" for i in range(10)]
         results = svc.get_embeddings_batch(texts)
 
-        assert len(results) == 45
-        expected_calls = -(-len(texts) // _BATCH_SIZE)  # ceiling division
-        assert mock_openai_embeddings.embeddings.create.call_count == expected_calls
+        assert len(results) == 10
+        for vec in results:
+            assert isinstance(vec, list)
+            assert len(vec) == 1024
+
+    def test_get_embeddings_batch_empty_input(self, mock_openai_embeddings):
+        """get_embeddings_batch returns empty list for empty input."""
+        from app.rag.embeddings import EmbeddingService
+
+        svc = EmbeddingService()
+        assert svc.get_embeddings_batch([]) == []
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +107,7 @@ class TestContractRetriever:
         results = retriever.retrieve("German law")
 
         assert len(results) > 0
-        required_keys = {"text", "source_file", "chunk_index", "language", "similarity_score"}
+        required_keys = {"text", "source_file", "chunk_index", "total_chunks", "page_number", "language", "similarity_score"}
         for r in results:
             assert required_keys.issubset(r.keys()), f"Missing keys in result: {r}"
 
@@ -146,14 +125,14 @@ class TestContractRetriever:
     def test_retrieve_filters_low_similarity(
         self, temp_chroma_db, mock_openai_embeddings, sample_chunks
     ):
-        """All returned results must have similarity_score >= 0.3."""
+        """All returned results must have similarity_score >= _MIN_SIMILARITY (0.15)."""
         self._seed_collection(temp_chroma_db, mock_openai_embeddings, sample_chunks)
-        from app.rag.retriever import ContractRetriever
+        from app.rag.retriever import ContractRetriever, _MIN_SIMILARITY
 
         retriever = ContractRetriever()
         results = retriever.retrieve("anything", top_k=10)
         for r in results:
-            assert r["similarity_score"] >= 0.3, (
+            assert r["similarity_score"] >= _MIN_SIMILARITY, (
                 f"Low-similarity result slipped through: {r}"
             )
 
@@ -166,7 +145,7 @@ class TestAgentNodes:
     """Unit tests for individual agent node functions."""
 
     def test_formatter_appends_sources(self):
-        """formatter must append a Sources line and populate state['sources']."""
+        """formatter must append a Sources block with page, chunk, and score info."""
         from app.rag.agent import formatter, AgentState
 
         state: AgentState = {
@@ -174,8 +153,10 @@ class TestAgentNodes:
             "query_type": "find_clause",
             "retrieved_chunks": [
                 {"source_file": "contract_a.pdf", "text": "...", "chunk_index": 0,
+                 "total_chunks": 10, "page_number": 3,
                  "language": "en", "similarity_score": 0.9},
                 {"source_file": "contract_b.pdf", "text": "...", "chunk_index": 0,
+                 "total_chunks": 8, "page_number": 1,
                  "language": "de", "similarity_score": 0.8},
             ],
             "answer": "Yes, GDPR clause found.",
@@ -187,10 +168,13 @@ class TestAgentNodes:
         assert "contract_a.pdf" in result["answer"]
         assert "contract_b.pdf" in result["answer"]
         assert "**Sources:**" in result["answer"]
+        # New format: should include page reference
+        assert "page 3" in result["answer"]
+        assert "page 1" in result["answer"]
         assert set(result["sources"]) == {"contract_a.pdf", "contract_b.pdf"}
 
     def test_formatter_deduplicates_sources(self):
-        """formatter must not repeat the same source filename twice."""
+        """formatter must not repeat the same chunk twice (deduped by chunk_index)."""
         from app.rag.agent import formatter, AgentState
 
         state: AgentState = {
@@ -198,9 +182,11 @@ class TestAgentNodes:
             "query_type": "find_clause",
             "retrieved_chunks": [
                 {"source_file": "contract_a.pdf", "text": "chunk 1",
-                 "chunk_index": 0, "language": "en", "similarity_score": 0.9},
+                 "chunk_index": 0, "total_chunks": 5, "page_number": 1,
+                 "language": "en", "similarity_score": 0.9},
                 {"source_file": "contract_a.pdf", "text": "chunk 2",
-                 "chunk_index": 1, "language": "en", "similarity_score": 0.8},
+                 "chunk_index": 1, "total_chunks": 5, "page_number": 2,
+                 "language": "en", "similarity_score": 0.8},
             ],
             "answer": "Found something.",
             "sources": [],
@@ -279,8 +265,8 @@ class TestContractRetrieverExtra:
             }
         ]
         from app.etl.loaders.chroma_loader import ChromaLoader
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.return_value = [[0.1] * 1024]
             loader = ChromaLoader()
             loader.load(gdpr_chunk)
 

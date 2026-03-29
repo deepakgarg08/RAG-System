@@ -21,26 +21,41 @@ os.environ.setdefault("APP_ENV", "test")
 # OpenAI mock
 # ---------------------------------------------------------------------------
 
-def _fake_embedding(dim: int = 1536) -> list[float]:
+def _fake_embedding(dim: int = 1024) -> list[float]:
     """Return a deterministic unit vector of the given dimension."""
     return [1.0 / dim] * dim
 
 
+def _make_mock_st_model(dim: int = 1024) -> MagicMock:
+    """Build a SentenceTransformer mock whose encode() returns numpy-like arrays."""
+    import numpy as np
+
+    mock_model = MagicMock()
+
+    def _encode(input_data, normalize_embeddings=True, batch_size=32, show_progress_bar=False, **kwargs):
+        if isinstance(input_data, str):
+            return np.array([1.0 / dim] * dim, dtype=np.float32)
+        return np.array([[1.0 / dim] * dim] * len(input_data), dtype=np.float32)
+
+    mock_model.encode.side_effect = _encode
+    return mock_model
+
+
 @pytest.fixture
 def mock_openai_embeddings(monkeypatch):
-    """Patch the OpenAI embeddings client to return fake vectors offline."""
-    fake_item = MagicMock()
-    fake_item.embedding = _fake_embedding()
-    fake_item.index = 0
+    """Patch SentenceTransformer to return fake 1024-dim vectors offline.
 
-    fake_response = MagicMock()
-    fake_response.data = [fake_item]
+    Name kept as mock_openai_embeddings for backward compatibility with all
+    existing test signatures — the underlying model is now bge-m3 (local).
+    """
+    import app.rag.embeddings as emb_module
 
-    mock_client = MagicMock()
-    mock_client.embeddings.create.return_value = fake_response
+    mock_model = _make_mock_st_model()
+    monkeypatch.setattr(emb_module, "_local_model", mock_model)
+    monkeypatch.setattr(emb_module, "_service", None)  # reset singleton
 
-    with patch("app.rag.embeddings.OpenAI", return_value=mock_client):
-        yield mock_client
+    with patch("app.rag.embeddings.SentenceTransformer", return_value=mock_model):
+        yield mock_model
 
 
 @pytest.fixture
@@ -112,14 +127,22 @@ def sample_pdf_path(tmp_path) -> Path:
 
 @pytest.fixture
 def sample_chunks() -> list[dict]:
-    """Return a list of chunk dicts that mimic ETL pipeline output."""
+    """Return a list of chunk dicts that mimic ETL pipeline output.
+
+    Includes page_number and total_chunks to match the updated extractor
+    and chunker interfaces.
+    """
     return [
         {
             "text": "This contract is governed by German law.",
             "metadata": {
                 "source_file": "contract_a.pdf",
                 "chunk_index": 0,
+                "total_chunks": 2,
+                "page_number": 1,
                 "language": "en",
+                "file_type": ".pdf",
+                "char_count": 40,
             },
         },
         {
@@ -127,7 +150,11 @@ def sample_chunks() -> list[dict]:
             "metadata": {
                 "source_file": "contract_a.pdf",
                 "chunk_index": 1,
+                "total_chunks": 2,
+                "page_number": 1,
                 "language": "en",
+                "file_type": ".pdf",
+                "char_count": 47,
             },
         },
         {
@@ -135,7 +162,11 @@ def sample_chunks() -> list[dict]:
             "metadata": {
                 "source_file": "contract_b.pdf",
                 "chunk_index": 0,
+                "total_chunks": 1,
+                "page_number": 1,
                 "language": "de",
+                "file_type": ".pdf",
+                "char_count": 39,
             },
         },
     ]
@@ -200,19 +231,18 @@ def mock_openai_embedding(monkeypatch):
     # Reset singleton so new EmbeddingService() picks up the mock client
     monkeypatch.setattr(emb_module, "_service", None)
 
-    fake_vector = [1.0 / 1536] * 1536
+    import app.rag.embeddings as emb_module
 
-    fake_item = MagicMock()
-    fake_item.embedding = fake_vector
-    fake_item.index = 0
-    fake_response = MagicMock()
-    fake_response.data = [fake_item]
-    mock_client = MagicMock()
-    mock_client.embeddings.create.return_value = fake_response
+    fake_vector = [1.0 / 1024] * 1024
+    mock_model = _make_mock_st_model()
 
-    with patch("app.rag.embeddings.OpenAI", return_value=mock_client), \
-         patch("app.etl.loaders.chroma_loader.get_embedding", return_value=fake_vector):
-        yield mock_client
+    monkeypatch.setattr(emb_module, "_local_model", mock_model)
+    monkeypatch.setattr(emb_module, "_service", None)
+
+    with patch("app.rag.embeddings.SentenceTransformer", return_value=mock_model), \
+         patch("app.etl.loaders.chroma_loader.get_embeddings",
+               side_effect=lambda texts: [fake_vector] * len(texts)):
+        yield mock_model
 
 
 @pytest.fixture

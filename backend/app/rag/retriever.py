@@ -2,6 +2,7 @@
 retriever.py — Semantic retrieval from the vector store.
 Embeds the query, queries ChromaDB for the top-K most similar chunks,
 and returns chunks with their metadata and similarity scores for the agent.
+Results include page_number for precise source attribution in legal review.
 """
 import logging
 
@@ -22,7 +23,9 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 _COLLECTION_NAME = "riverty_contracts"
-_MIN_SIMILARITY = 0.3
+_MIN_SIMILARITY = 0.40   # bge-m3 normalized vectors score higher than OpenAI models;
+                         # 0.40 keeps relevant same-language and cross-lingual (EN↔DE)
+                         # chunks while filtering out genuine noise (unrelated text ~0.05–0.25)
 
 
 class ContractRetriever:
@@ -42,7 +45,7 @@ class ContractRetriever:
             self._collection.count(),
         )
 
-    def retrieve(self, query: str, top_k: int = 5) -> list[dict]:
+    def retrieve(self, query: str, top_k: int = 8) -> list[dict]:
         """Find the most semantically similar chunks to the query.
 
         Embeds the query, searches ChromaDB, converts cosine distances to
@@ -50,7 +53,8 @@ class ContractRetriever:
 
         Args:
             query: Plain-English question or search string.
-            top_k: Maximum number of results to return.
+            top_k: Maximum number of results to return. Default raised to 8
+                   to give GPT-4o more context for complex legal questions.
 
         Returns:
             List of result dicts ordered by descending similarity, each with:
@@ -58,15 +62,21 @@ class ContractRetriever:
                 "text": str,
                 "source_file": str,
                 "chunk_index": int,
+                "total_chunks": int,
+                "page_number": int,
                 "language": str,
                 "similarity_score": float,  # 0.0 (dissimilar) to 1.0 (identical)
             }
         """
+        count = self._collection.count()
+        if count == 0:
+            return []
+
         query_vector = self._embedder.get_embedding(query)
 
         raw = self._collection.query(
             query_embeddings=[query_vector],
-            n_results=min(top_k, max(self._collection.count(), 1)),
+            n_results=min(top_k, count),
             include=["documents", "metadatas", "distances"],
         )
 
@@ -77,7 +87,6 @@ class ContractRetriever:
         results: list[dict] = []
         for doc, meta, dist in zip(documents, metadatas, distances):
             # ChromaDB cosine distance ∈ [0, 2]; similarity = 1 - distance
-            # (distance 0 = identical, distance 1 = orthogonal, distance 2 = opposite)
             similarity = 1.0 - float(dist)
             if similarity < _MIN_SIMILARITY:
                 continue
@@ -86,6 +95,8 @@ class ContractRetriever:
                     "text": doc,
                     "source_file": meta.get("source_file", "unknown"),
                     "chunk_index": meta.get("chunk_index", 0),
+                    "total_chunks": meta.get("total_chunks", 0),
+                    "page_number": meta.get("page_number", 1),
                     "language": meta.get("language", "unknown"),
                     "similarity_score": round(similarity, 4),
                 }

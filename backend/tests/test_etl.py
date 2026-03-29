@@ -91,13 +91,18 @@ class TestTextCleaner:
 # DocumentChunker
 # ---------------------------------------------------------------------------
 
+def _pages(text: str, page_number: int = 1) -> list[dict]:
+    """Helper: wrap a text string into the page-dict format extractors now return."""
+    return [{"page_number": page_number, "text": text}]
+
+
 class TestDocumentChunker:
     """Tests for chunker.py — text splitting and metadata attachment."""
 
     def test_chunk_returns_list_of_dicts(self):
         from app.etl.transformers.chunker import DocumentChunker
         chunker = DocumentChunker()
-        chunks = chunker.chunk("Hello world. " * 100, {"source_file": "test.pdf", "file_type": ".pdf", "language": "en"})
+        chunks = chunker.chunk(_pages("Hello world. " * 100), {"source_file": "test.pdf", "file_type": ".pdf", "language": "en"})
         assert isinstance(chunks, list)
         assert len(chunks) > 0
         assert "text" in chunks[0]
@@ -106,43 +111,50 @@ class TestDocumentChunker:
     def test_chunk_attaches_chunk_index(self):
         from app.etl.transformers.chunker import DocumentChunker
         chunker = DocumentChunker()
-        text = "word " * 500  # long enough for multiple chunks
-        chunks = chunker.chunk(text, {"source_file": "test.pdf", "file_type": ".pdf", "language": "en"})
+        chunks = chunker.chunk(_pages("word " * 500), {"source_file": "test.pdf", "file_type": ".pdf", "language": "en"})
         for i, chunk in enumerate(chunks):
             assert chunk["metadata"]["chunk_index"] == i
 
     def test_chunk_attaches_total_chunks(self):
         from app.etl.transformers.chunker import DocumentChunker
         chunker = DocumentChunker()
-        text = "word " * 500
-        chunks = chunker.chunk(text, {"source_file": "test.pdf", "file_type": ".pdf", "language": "en"})
+        chunks = chunker.chunk(_pages("word " * 500), {"source_file": "test.pdf", "file_type": ".pdf", "language": "en"})
         total = len(chunks)
         for chunk in chunks:
             assert chunk["metadata"]["total_chunks"] == total
+
+    def test_chunk_attaches_page_number(self):
+        from app.etl.transformers.chunker import DocumentChunker
+        chunker = DocumentChunker()
+        pages = [
+            {"page_number": 1, "text": "word " * 100},
+            {"page_number": 2, "text": "word " * 100},
+        ]
+        chunks = chunker.chunk(pages, {"source_file": "test.pdf", "file_type": ".pdf", "language": "en"})
+        page_numbers = {c["metadata"]["page_number"] for c in chunks}
+        assert 1 in page_numbers or 2 in page_numbers
 
     def test_chunk_preserves_base_metadata(self):
         from app.etl.transformers.chunker import DocumentChunker
         chunker = DocumentChunker()
         base = {"source_file": "contract.pdf", "file_type": ".pdf", "language": "de"}
-        chunks = chunker.chunk("text " * 300, base)
+        chunks = chunker.chunk(_pages("text " * 300), base)
         for chunk in chunks:
             assert chunk["metadata"]["source_file"] == "contract.pdf"
             assert chunk["metadata"]["language"] == "de"
 
-    def test_chunk_empty_text_returns_empty_list(self):
+    def test_chunk_empty_pages_returns_empty_list(self):
         from app.etl.transformers.chunker import DocumentChunker
         chunker = DocumentChunker()
-        chunks = chunker.chunk("", {"source_file": "empty.pdf", "file_type": ".pdf", "language": "en"})
+        chunks = chunker.chunk([], {"source_file": "empty.pdf", "file_type": ".pdf", "language": "en"})
         assert chunks == []
 
     def test_chunk_text_within_size_limit(self):
         from app.etl.transformers.chunker import DocumentChunker
         from app.config import settings
         chunker = DocumentChunker()
-        text = "word " * 500
-        chunks = chunker.chunk(text, {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
+        chunks = chunker.chunk(_pages("word " * 500), {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
         for chunk in chunks:
-            # Allow slight overshoot at sentence boundaries, but broadly within limit
             assert len(chunk["text"]) <= settings.max_chunk_size * 1.2
 
 
@@ -153,17 +165,20 @@ class TestDocumentChunker:
 class TestPDFExtractor:
     """Tests for pdf_extractor.py — PDF text extraction."""
 
-    def test_extract_returns_string_from_valid_pdf(self, sample_pdf_path):
+    def test_extract_returns_page_dicts_from_valid_pdf(self, sample_pdf_path):
         from app.etl.extractors.pdf_extractor import PDFExtractor
         extractor = PDFExtractor()
         result = extractor.extract(str(sample_pdf_path))
-        assert isinstance(result, str)
+        assert isinstance(result, list)
+        if result:  # may be empty if PDF is blank/scanned
+            assert "page_number" in result[0]
+            assert "text" in result[0]
 
-    def test_extract_returns_empty_string_on_missing_file(self):
+    def test_extract_returns_empty_list_on_missing_file(self):
         from app.etl.extractors.pdf_extractor import PDFExtractor
         extractor = PDFExtractor()
         result = extractor.extract("/tmp/does_not_exist_abc123.pdf")
-        assert result == ""
+        assert result == []
 
     def test_can_handle_pdf_extension(self):
         from app.etl.extractors.pdf_extractor import PDFExtractor
@@ -182,16 +197,16 @@ class TestChromaLoader:
 
     def test_load_stores_chunks_and_returns_count(self, temp_chroma_db, mock_openai_embeddings, sample_chunks):
         from app.etl.loaders.chroma_loader import ChromaLoader
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.side_effect = lambda texts: [[0.1] * 1024] * len(texts)
             loader = ChromaLoader()
             stored = loader.load(sample_chunks)
         assert stored == len(sample_chunks)
 
     def test_load_increments_document_count(self, temp_chroma_db, sample_chunks):
         from app.etl.loaders.chroma_loader import ChromaLoader
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.side_effect = lambda texts: [[0.1] * 1024] * len(texts)
             loader = ChromaLoader()
             before = loader.get_document_count()
             loader.load(sample_chunks)
@@ -219,8 +234,8 @@ class TestIngestionPipeline:
 
     def test_ingest_pdf_happy_path(self, temp_chroma_db, sample_pdf_path, mock_openai_embeddings):
         from app.etl.pipeline import IngestionPipeline
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.return_value = [[0.1] * 1024]
             pipeline = IngestionPipeline()
             result = pipeline.ingest(str(sample_pdf_path))
 
@@ -242,8 +257,8 @@ class TestIngestionPipeline:
         from app.etl.pipeline import IngestionPipeline
         bad_pdf = tmp_path / "corrupt.pdf"
         bad_pdf.write_bytes(b"not a real pdf")
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.return_value = [[0.1] * 1024]
             pipeline = IngestionPipeline()
             result = pipeline.ingest(str(bad_pdf))
         # Empty/corrupt PDF: either 0 chunks + success, or status=failed with error key
@@ -253,8 +268,8 @@ class TestIngestionPipeline:
 
     def test_ingest_result_has_required_keys(self, temp_chroma_db, sample_pdf_path, mock_openai_embeddings):
         from app.etl.pipeline import IngestionPipeline
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.return_value = [[0.1] * 1024]
             pipeline = IngestionPipeline()
             result = pipeline.ingest(str(sample_pdf_path))
 
@@ -271,10 +286,12 @@ class TestIngestionPipeline:
             "DSGVO-Compliance: Beide Parteien verpflichten sich zur Einhaltung der DSGVO.\n"
             "Kündigung: Der Vertrag kann mit 30 Tagen Frist gekündigt werden.\n"
         ) * 6  # repeat so langdetect has enough signal
+        # Extractor now returns list of page dicts
+        german_pages = [{"page_number": 1, "text": german_text}]
         from app.etl.pipeline import IngestionPipeline
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed, \
-             patch("app.etl.extractors.pdf_extractor.PDFExtractor.extract", return_value=german_text):
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed, \
+             patch("app.etl.extractors.pdf_extractor.PDFExtractor.extract", return_value=german_pages):
+            mock_embed.side_effect = lambda texts: [[0.1] * 1024] * len(texts)
             pipeline = IngestionPipeline()
             result = pipeline.ingest(str(sample_pdf_path))
         assert result["status"] == "success"
@@ -285,8 +302,8 @@ class TestIngestionPipeline:
         empty_pdf = tmp_path / "empty.pdf"
         empty_pdf.write_bytes(b"")
         from app.etl.pipeline import IngestionPipeline
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.return_value = [[0.1] * 1024]
             pipeline = IngestionPipeline()
             result = pipeline.ingest(str(empty_pdf))
         # Must not raise; status can be 'success' (0 chunks) or 'failed'
@@ -303,7 +320,7 @@ class TestOCRExtractor:
     """Tests for ocr_extractor.py — Tesseract-based image text extraction."""
 
     def test_extracts_text_from_valid_image(self, tmp_path):
-        """Happy path: image file with mocked OCR returns expected text."""
+        """Happy path: image file with mocked OCR returns page-dict list with expected text."""
         from PIL import Image
         img_path = tmp_path / "contract.png"
         img = Image.new("RGB", (400, 200), color=(255, 255, 255))
@@ -314,10 +331,13 @@ class TestOCRExtractor:
                    return_value="NDA Agreement valid text"):
             extractor = OCRExtractor()
             result = extractor.extract(str(img_path))
-        assert result == "NDA Agreement valid text"
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["text"] == "NDA Agreement valid text"
+        assert result[0]["page_number"] == 1
 
     def test_handles_blank_image(self, tmp_path):
-        """Edge case: blank white image — OCR returns empty string without raising."""
+        """Edge case: blank white image — OCR returns page-dict with empty text."""
         from PIL import Image
         img_path = tmp_path / "blank.png"
         Image.new("RGB", (200, 100), color=(255, 255, 255)).save(str(img_path))
@@ -327,7 +347,8 @@ class TestOCRExtractor:
                    return_value=""):
             extractor = OCRExtractor()
             result = extractor.extract(str(img_path))
-        assert result == ""
+        assert isinstance(result, list)
+        assert result[0]["text"] == ""
 
     def test_supports_german_language(self, tmp_path):
         """Happy path: OCR is called with lang='eng+deu' so German text is supported."""
@@ -345,11 +366,11 @@ class TestOCRExtractor:
         assert "deu" in _TESSERACT_LANG
 
     def test_returns_empty_on_missing_file(self):
-        """Error: missing file path returns '' without raising an exception."""
+        """Error: missing file path returns [] without raising an exception."""
         from app.etl.extractors.ocr_extractor import OCRExtractor
         extractor = OCRExtractor()
         result = extractor.extract("/tmp/nonexistent_image_xyz123.png")
-        assert result == ""
+        assert result == []
 
     def test_can_handle_image_extensions(self):
         """Happy path: can_handle returns True for .jpg/.jpeg/.png only."""
@@ -373,7 +394,7 @@ class TestDocumentChunkerEdgeCases:
         from app.etl.transformers.chunker import DocumentChunker
         chunker = DocumentChunker()
         short_text = "This is a short contract clause."
-        chunks = chunker.chunk(short_text, {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
+        chunks = chunker.chunk(_pages(short_text), {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
         assert len(chunks) == 1
         assert chunks[0]["text"] == short_text
 
@@ -382,26 +403,59 @@ class TestDocumentChunkerEdgeCases:
         from app.etl.transformers.chunker import DocumentChunker
         from app.config import settings
         chunker = DocumentChunker()
-        # Build text large enough to guarantee at least 2 chunks
         word = "contract "
         text = word * (settings.max_chunk_size // len(word) * 3)
-        chunks = chunker.chunk(text, {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
+        chunks = chunker.chunk(_pages(text), {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
         if len(chunks) >= 2:
             tail = chunks[0]["text"][-settings.chunk_overlap:]
             head = chunks[1]["text"][:settings.chunk_overlap]
-            # At least some overlap content must be shared
             assert any(w in head for w in tail.split() if w)
 
     def test_chunk_index_is_sequential(self):
         """Happy path: chunk_index is 0, 1, 2... and total_chunks is correct."""
         from app.etl.transformers.chunker import DocumentChunker
         chunker = DocumentChunker()
-        text = "word " * 500
-        chunks = chunker.chunk(text, {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
+        chunks = chunker.chunk(_pages("word " * 500), {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
         total = len(chunks)
         for i, chunk in enumerate(chunks):
             assert chunk["metadata"]["chunk_index"] == i
             assert chunk["metadata"]["total_chunks"] == total
+
+    def test_qa_chunker_splits_on_question_boundaries(self):
+        """Happy path: Q&A text produces one chunk per Q+A pair."""
+        from app.etl.transformers.chunker import DocumentChunker
+        qa_text = (
+            "Q: What is the return policy?\nA: You can return within 30 days.\n\n"
+            "Q: Is free shipping available?\nA: Yes, on orders over 50 EUR.\n\n"
+            "Q: Can I change my order?\nA: Changes allowed within 1 hour of placing.\n"
+        )
+        chunker = DocumentChunker()
+        chunks = chunker.chunk(_pages(qa_text), {"source_file": "faq.pdf", "file_type": ".pdf", "language": "en"})
+        # Each Q+A pair should be its own chunk
+        assert len(chunks) == 3
+        assert all("Q:" in c["text"] for c in chunks)
+
+    def test_legal_chunker_splits_on_section_headers(self):
+        """Happy path: legal contract text produces one chunk per section."""
+        from app.etl.transformers.chunker import DocumentChunker
+        legal_text = (
+            "AGREEMENT\nThis agreement is between Party A and Party B.\n\n"
+            "Section 1 Confidentiality\nAll information shared is confidential.\n\n"
+            "Section 2 Termination\nEither party may terminate with 30 days notice.\n\n"
+            "Section 3 Governing Law\nThis agreement is governed by German law.\n"
+        )
+        chunker = DocumentChunker()
+        chunks = chunker.chunk(_pages(legal_text), {"source_file": "nda.pdf", "file_type": ".pdf", "language": "en"})
+        assert len(chunks) >= 3
+
+    def test_each_chunk_has_page_number(self):
+        """Happy path: every chunk carries a page_number in its metadata."""
+        from app.etl.transformers.chunker import DocumentChunker
+        chunker = DocumentChunker()
+        chunks = chunker.chunk(_pages("word " * 100), {"source_file": "t.pdf", "file_type": ".pdf", "language": "en"})
+        for chunk in chunks:
+            assert "page_number" in chunk["metadata"]
+            assert isinstance(chunk["metadata"]["page_number"], int)
 
 
 # ---------------------------------------------------------------------------
@@ -414,8 +468,8 @@ class TestChromaLoaderExtra:
     def test_loads_metadata_with_each_chunk(self, temp_chroma_db, sample_chunks):
         """Happy path: metadata fields are stored alongside each chunk vector."""
         from app.etl.loaders.chroma_loader import ChromaLoader
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.side_effect = lambda texts: [[0.1] * 1024] * len(texts)
             loader = ChromaLoader()
             loader.load(sample_chunks)
             # Query back the stored items and verify metadata
@@ -427,8 +481,8 @@ class TestChromaLoaderExtra:
     def test_handles_duplicate_chunk_ids(self, temp_chroma_db, sample_chunks):
         """Edge case: ingesting the same file twice (upsert) does not raise or duplicate."""
         from app.etl.loaders.chroma_loader import ChromaLoader
-        with patch("app.etl.loaders.chroma_loader.get_embedding") as mock_embed:
-            mock_embed.return_value = [0.1] * 1536
+        with patch("app.etl.loaders.chroma_loader.get_embeddings") as mock_embed:
+            mock_embed.side_effect = lambda texts: [[0.1] * 1024] * len(texts)
             loader = ChromaLoader()
             loader.load(sample_chunks)
             count_after_first = loader.get_document_count()

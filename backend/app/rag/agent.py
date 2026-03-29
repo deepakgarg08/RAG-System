@@ -180,7 +180,16 @@ async def reasoner(state: AgentState) -> dict:
 
 
 def formatter(state: AgentState) -> dict:
-    """Append source citations to the answer and collect unique source names.
+    """Append detailed source citations to the answer and collect unique source names.
+
+    Each source line includes file name, page number, chunk position within the
+    document, and similarity score — giving legal reviewers a precise reference
+    to locate the exact passage in the original document.
+
+    Format:
+        **Sources:**
+        • contract.pdf — page 3, chunk 4/21 (relevance: 0.87)
+        • contract.pdf — page 5, chunk 7/21 (relevance: 0.74)
 
     Args:
         state: Current agent state with answer and retrieved_chunks.
@@ -189,16 +198,44 @@ def formatter(state: AgentState) -> dict:
         Partial state update with answer (amended) and sources list.
     """
     chunks = state.get("retrieved_chunks", [])
-    unique_sources: list[str] = list(
-        dict.fromkeys(c["source_file"] for c in chunks if c.get("source_file"))
-    )
-
     answer = state.get("answer", "")
-    if unique_sources and answer and answer != "No relevant contracts found.":
-        sources_line = ", ".join(unique_sources)
-        answer = f"{answer}\n\n**Sources:** {sources_line}"
 
-    logger.info("formatter: sources=%r", unique_sources)
+    if not chunks or not answer or answer == "No relevant contracts found.":
+        unique_sources = list(
+            dict.fromkeys(c["source_file"] for c in chunks if c.get("source_file"))
+        )
+        logger.info("formatter: sources=%r", unique_sources)
+        return {"answer": answer, "sources": unique_sources}
+
+    # Build one attribution line per retrieved chunk (deduplicated by chunk_index)
+    seen: set[str] = set()
+    source_lines: list[str] = []
+    unique_sources: list[str] = []
+
+    for c in chunks:
+        source_file = c.get("source_file", "unknown")
+        chunk_index = c.get("chunk_index", 0)
+        total_chunks = c.get("total_chunks", 0)
+        page_number = c.get("page_number", 1)
+        score = c.get("similarity_score", 0.0)
+
+        dedup_key = f"{source_file}:{chunk_index}"
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        chunk_ref = f"{chunk_index + 1}/{total_chunks}" if total_chunks else str(chunk_index + 1)
+        source_lines.append(
+            f"  • {source_file} — page {page_number}, chunk {chunk_ref} (relevance: {score:.2f})"
+        )
+
+        if source_file not in unique_sources:
+            unique_sources.append(source_file)
+
+    sources_block = "\n".join(source_lines)
+    answer = f"{answer}\n\n**Sources:**\n{sources_block}"
+
+    logger.info("formatter: %d source references from %d files", len(source_lines), len(unique_sources))
     return {"answer": answer, "sources": unique_sources}
 
 

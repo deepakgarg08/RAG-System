@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # --- ETL parameters ---
     max_chunk_size: int = Field(default=1000, alias="MAX_CHUNK_SIZE")
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP")
-    top_k_results: int = Field(default=5, alias="TOP_K_RESULTS")
+    top_k_results: int = Field(default=8, alias="TOP_K_RESULTS")  # raised from 5 for better recall
 
     # --- Azure OpenAI (PRODUCTION — optional) ---
     azure_openai_api_key: str = Field(default="", alias="AZURE_OPENAI_API_KEY")

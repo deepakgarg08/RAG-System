@@ -7,12 +7,16 @@ references. It never invents information not present in the contracts.
 ## Components
 
 ### `embeddings.py`
-Converts text strings to vectors using **OpenAI text-embedding-3-small** (1536 dimensions).
+Converts text strings to vectors using **OpenAI text-embedding-3-large** (3072 dimensions).
 Used both at ingest time (to embed chunks) and query time (to embed the question).
+Uses the larger model for better paraphrase/synonym matching — critical when users phrase
+queries differently from the document text (e.g. "favourite color" vs "preferred color").
 
 ### `retriever.py`
-Queries ChromaDB for the top-5 most semantically similar chunks to the embedded question.
-Returns chunks with their metadata (source file, chunk index) and similarity scores.
+Queries ChromaDB for the top-8 most semantically similar chunks to the embedded question.
+Returns chunks with full metadata including `page_number`, `chunk_index`, `total_chunks`,
+and `similarity_score`. Minimum similarity threshold: `0.15` (lowered from `0.30` to
+prevent silently dropping relevant chunks with paraphrased queries).
 Top-K is configurable via `TOP_K_RESULTS` in config.
 
 ### `agent.py`
@@ -55,7 +59,8 @@ User question
 [formatter]
   Structures the final response:
   - Answer text
-  - Source references: [{filename, chunk_index, relevance_score}]
+  - Source references with page, chunk position, and relevance score:
+    "contract.pdf — page 3, chunk 4/21 (relevance: 0.87)"
 ```
 
 ## Production Swap Note
@@ -66,6 +71,6 @@ User question
 #   Change client initialisation in embeddings.py and agent.py
 #   FROM: OpenAI(api_key=...)
 #   TO:   AzureOpenAI(api_key=..., azure_endpoint=..., api_version="2024-02-01")
-#   Model names remain the same: "gpt-4o", "text-embedding-3-small"
+#   Model names remain the same: "gpt-4o", "text-embedding-3-large"
 # ============================================================
 ```

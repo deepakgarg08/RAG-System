@@ -10,7 +10,7 @@ import chromadb
 
 from app.config import settings
 from app.etl.loaders.base import BaseLoader
-from app.rag.embeddings import get_embedding
+from app.rag.embeddings import get_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,11 @@ class ChromaLoader(BaseLoader):
         )
 
     def load(self, chunks: list[dict]) -> int:
-        """Embed each chunk and store it in ChromaDB.
+        """Embed all chunks in one batch call and store them in ChromaDB.
+
+        Previously called get_embedding() once per chunk (N HTTP requests for
+        OpenAI, or N model forward passes for local). Now calls get_embeddings()
+        once for all chunks — a single model pass regardless of chunk count.
 
         Args:
             chunks: List of chunk dicts with 'text' and 'metadata' keys
@@ -52,32 +56,40 @@ class ChromaLoader(BaseLoader):
         Returns:
             Number of chunks successfully stored.
         """
-        stored = 0
+        if not chunks:
+            return 0
+
+        texts = [chunk["text"] for chunk in chunks]
+
+        logger.info(
+            "ChromaLoader: embedding %d chunks in one batch pass...", len(chunks)
+        )
+        embeddings = get_embeddings(texts)  # single call — all chunks at once
+
+        ids = []
+        docs = []
+        metas = []
 
         for i, chunk in enumerate(chunks):
             source = chunk["metadata"].get("source_file", "unknown")
             chunk_idx = chunk["metadata"].get("chunk_index", i)
-            doc_id = f"{source}_chunk_{chunk_idx}"
+            ids.append(f"{source}_chunk_{chunk_idx}")
+            docs.append(chunk["text"])
+            metas.append(chunk["metadata"])
 
-            embedding = get_embedding(chunk["text"])
-
-            self._collection.upsert(
-                ids=[doc_id],
-                embeddings=[embedding],
-                documents=[chunk["text"]],
-                metadatas=[chunk["metadata"]],
-            )
-            stored += 1
-
-            if stored % 10 == 0:
-                logger.info("ChromaLoader: stored %d / %d chunks", stored, len(chunks))
+        self._collection.upsert(
+            ids=ids,
+            embeddings=embeddings,
+            documents=docs,
+            metadatas=metas,
+        )
 
         logger.info(
             "ChromaLoader: load complete — %d chunks stored (total in collection: %d)",
-            stored,
+            len(chunks),
             self._collection.count(),
         )
-        return stored
+        return len(chunks)
 
     def get_document_count(self) -> int:
         """Return the total number of chunks in the ChromaDB collection."""

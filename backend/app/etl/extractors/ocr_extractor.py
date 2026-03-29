@@ -1,7 +1,8 @@
 """
 ocr_extractor.py — Text extraction from scanned images via Tesseract OCR.
 Handles JPEG and PNG inputs; pre-processes (grayscale, contrast enhance) before OCR.
-Supports English and German via lang='eng+deu'. Returns empty string on failure.
+Supports English and German via lang='eng+deu'. Returns empty list on failure.
+Images are single-page by definition, so always returns one page dict.
 """
 import logging
 import os
@@ -27,9 +28,13 @@ _CONTRAST_FACTOR = 2.0
 
 
 class OCRExtractor(BaseExtractor):
-    """Extracts text from scanned images using Tesseract OCR with pre-processing."""
+    """Extracts text from scanned images using Tesseract OCR with pre-processing.
 
-    def extract(self, file_path: str) -> str:
+    Images are single-page by definition — always returns a one-element list
+    with page_number=1.
+    """
+
+    def extract(self, file_path: str) -> list[dict]:
         """Extract text from a scanned image file.
 
         Pre-processes the image (grayscale + contrast enhancement) before running
@@ -39,7 +44,8 @@ class OCRExtractor(BaseExtractor):
             file_path: Absolute or relative path to the image file (.jpg, .jpeg, .png).
 
         Returns:
-            Extracted text string, or empty string on failure.
+            List with one dict: [{"page_number": 1, "text": str}].
+            Returns empty list on failure.
         """
         try:
             image = Image.open(file_path)
@@ -69,11 +75,11 @@ class OCRExtractor(BaseExtractor):
                 os.path.basename(file_path),
                 char_count,
             )
-            return text
+            return [{"page_number": 1, "text": text}]
 
         except Exception as exc:
             logger.error("OCRExtractor: failed to extract %s — %s", file_path, exc)
-            return ""
+            return []
 
     def can_handle(self, file_extension: str) -> bool:
         """Return True for .jpg, .jpeg, .png files."""

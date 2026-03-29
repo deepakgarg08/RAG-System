@@ -11,6 +11,12 @@ langchain-community==0.4.1
 langchain-text-splitters==1.1.1
 langgraph==1.1.3
 
+# Local embeddings (DEMO) — BAAI/bge-m3, free, offline, multilingual
+# First run: downloads ~2.3 GB model to ~/.cache/huggingface/ (once only)
+# PRODUCTION SWAP: comment out sentence-transformers, uncomment Azure OpenAI
+# embeddings in embeddings.py — no other changes needed
+sentence-transformers==3.4.1
+
 # Vector store (DEMO)
 # Note: chromadb 0.5.x uses Pydantic v1 which is incompatible with Python 3.12+
 # Use 1.x which uses native Pydantic v2
