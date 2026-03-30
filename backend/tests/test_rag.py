@@ -145,7 +145,7 @@ class TestAgentNodes:
     """Unit tests for individual agent node functions."""
 
     def test_formatter_appends_sources(self):
-        """formatter must append a Sources block with page, chunk, and score info."""
+        """formatter must append a Sources block grouped by file with page references."""
         from app.rag.agent import formatter, AgentState
 
         state: AgentState = {
@@ -167,10 +167,16 @@ class TestAgentNodes:
 
         assert "contract_a.pdf" in result["answer"]
         assert "contract_b.pdf" in result["answer"]
-        assert "**Sources:**" in result["answer"]
-        # New format: should include page reference
-        assert "page 3" in result["answer"]
-        assert "page 1" in result["answer"]
+        # New format uses "Sources:" not "**Sources:**"
+        assert "Sources:" in result["answer"]
+        # Page numbers must appear
+        assert "3" in result["answer"]
+        assert "1" in result["answer"]
+        # Clickable links must be present
+        assert "/files/contract_a.pdf#page=3" in result["answer"]
+        assert "/files/contract_b.pdf#page=1" in result["answer"]
+        # High relevance dots (both scores ≥ 0.65)
+        assert "high relevance" in result["answer"]
         assert set(result["sources"]) == {"contract_a.pdf", "contract_b.pdf"}
 
     def test_formatter_deduplicates_sources(self):

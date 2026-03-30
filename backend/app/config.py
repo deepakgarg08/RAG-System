@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     registry_path: str = Field(default="./ingestion_registry.json", alias="REGISTRY_PATH")
 
     # --- ETL parameters ---
-    max_chunk_size: int = Field(default=1000, alias="MAX_CHUNK_SIZE")
+    max_chunk_size: int = Field(default=1500, alias="MAX_CHUNK_SIZE")
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP")
     top_k_results: int = Field(default=8, alias="TOP_K_RESULTS")  # raised from 5 for better recall
 

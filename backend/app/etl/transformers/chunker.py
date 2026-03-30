@@ -6,7 +6,7 @@ and applies the appropriate chunking strategy:
 
   - QAChunker:       Q&A / FAQ documents → one chunk per Q+A pair
   - LegalChunker:    Contracts / agreements → one chunk per section/article
-  - NarrativeChunker: Everything else → RecursiveCharacterTextSplitter per page
+  - NarrativeChunker: Everything else → RecursiveCharacterTextSplitter (1500/200) per page
 
 Every chunk carries full source attribution metadata including page_number,
 chunk_index, total_chunks, and char_count for precise retrieval pinpointing.
@@ -360,7 +360,7 @@ class DocumentChunker:
                     continue
                 chunks.append(self._make_chunk(
                     chunk_text, base_metadata, chunk_index, page_number,
-                    "recursive_1000_200"
+                    "recursive_1500_200"
                 ))
                 chunk_index += 1
 

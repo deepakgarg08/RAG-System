@@ -51,8 +51,65 @@ If the information is not in the provided excerpts, say exactly:
 "This information was not found in the uploaded contracts."
 Never guess or use outside knowledge.
 
+Write in clear, natural prose. Insert 1-2 line breaks between paragraphs.
+Each distinct idea must be its own paragraph. Never write fragmented or chunked text.
+
+STRICTLY FORBIDDEN IN YOUR ANSWER:
+- chunk_index, total_chunks, char_count
+- raw metadata or internal IDs
+- relevance scores inline with text
+- Any mention of "chunk" or "embedding"
+
 Contract excerpts:
 {context}"""
+
+# Documents the output contract for the formatter node.
+# The formatter itself is pure Python — no extra LLM call needed.
+_FORMATTER_SYSTEM_PROMPT = """
+You are responsible for transforming retrieved RAG outputs into a clean,
+user-friendly response suitable for legal and business users.
+
+ANSWER FORMATTING RULES:
+- Combine all retrieved chunks into a single coherent answer
+- Remove duplicate or overlapping content
+- Write in clear, natural prose
+- Insert 1-2 line breaks between paragraphs
+- Each distinct idea must be its own paragraph
+- Never write fragmented or chunked text
+- If the answer was not found in the documents, say exactly:
+  "This information was not found in the uploaded contracts."
+
+STRICTLY FORBIDDEN IN OUTPUT:
+- chunk_index, total_chunks, char_count
+- raw metadata dictionaries
+- text previews or internal IDs
+- relevance scores shown inline with text
+- Any mention of "chunk" or "embedding"
+
+SOURCE DISPLAY FORMAT:
+After the answer, list sources using this exact format:
+
+Sources:
+[●] filename.pdf (Page X)
+
+Rules for sources:
+- One line per unique file
+- If multiple chunks came from same file, merge pages: (Page 1, 3, 5)
+- Use colored dot based on highest relevance score from that file:
+    Green dot  → relevance ≥ 65%  → use unicode ● with note "high relevance"
+    Amber dot  → relevance 50-64% → use unicode ● with note "medium relevance"
+    Grey dot   → relevance < 50%  → use unicode ● with note "low relevance"
+- Each source must be a clickable link in this format:
+    /files/{filename}#page={page_number}
+- Do NOT show raw relevance percentages unless they clearly add value
+- Do NOT show chunk numbers
+
+OUTPUT STRUCTURE — always follow this exactly:
+{answer paragraphs}
+
+Sources:
+[●] filename.pdf (Page X)
+"""
 
 
 class AgentState(TypedDict):
@@ -179,17 +236,39 @@ async def reasoner(state: AgentState) -> dict:
     return {"answer": answer}
 
 
-def formatter(state: AgentState) -> dict:
-    """Append detailed source citations to the answer and collect unique source names.
+def _relevance_dot(score: float) -> str:
+    """Return a relevance dot indicator string based on similarity score.
 
-    Each source line includes file name, page number, chunk position within the
-    document, and similarity score — giving legal reviewers a precise reference
-    to locate the exact passage in the original document.
+    Args:
+        score: Cosine similarity score in [0, 1].
+
+    Returns:
+        Unicode dot with relevance label:
+          ● high relevance   (score ≥ 0.65)
+          ● medium relevance (score 0.50–0.64)
+          ● low relevance    (score < 0.50)
+    """
+    if score >= 0.65:
+        return "● high relevance"
+    if score >= 0.50:
+        return "● medium relevance"
+    return "● low relevance"
+
+
+def formatter(state: AgentState) -> dict:
+    """Build clean source citations grouped by file and append to the answer.
+
+    Groups retrieved chunks by source_file, merges page numbers per file,
+    tracks the highest relevance score per file, and assigns a coloured dot
+    indicator. Builds clickable /files/{filename}#page={N} links.
+
+    No chunk-level metadata (chunk_index, char_count, etc.) appears in output.
 
     Format:
-        **Sources:**
-        • contract.pdf — page 3, chunk 4/21 (relevance: 0.87)
-        • contract.pdf — page 5, chunk 7/21 (relevance: 0.74)
+        {answer prose}
+
+        Sources:
+        ● high relevance  contract.pdf (Page 1, 3)  /files/contract.pdf#page=1
 
     Args:
         state: Current agent state with answer and retrieved_chunks.
@@ -202,40 +281,52 @@ def formatter(state: AgentState) -> dict:
 
     if not chunks or not answer or answer == "No relevant contracts found.":
         unique_sources = list(
-            dict.fromkeys(c["source_file"] for c in chunks if c.get("source_file"))
+            dict.fromkeys(c.get("source_file", "") for c in chunks if c.get("source_file"))
         )
-        logger.info("formatter: sources=%r", unique_sources)
+        logger.info("formatter: no chunks or terminal answer — sources=%r", unique_sources)
         return {"answer": answer, "sources": unique_sources}
 
-    # Build one attribution line per retrieved chunk (deduplicated by chunk_index)
-    seen: set[str] = set()
-    source_lines: list[str] = []
-    unique_sources: list[str] = []
-
+    # --- Group chunks by source_file ---
+    # file_data maps filename → {"pages": set[int], "best_score": float}
+    file_data: dict[str, dict] = {}
     for c in chunks:
         source_file = c.get("source_file", "unknown")
-        chunk_index = c.get("chunk_index", 0)
-        total_chunks = c.get("total_chunks", 0)
         page_number = c.get("page_number", 1)
         score = c.get("similarity_score", 0.0)
 
-        dedup_key = f"{source_file}:{chunk_index}"
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
+        if source_file not in file_data:
+            file_data[source_file] = {"pages": set(), "best_score": 0.0}
 
-        chunk_ref = f"{chunk_index + 1}/{total_chunks}" if total_chunks else str(chunk_index + 1)
-        source_lines.append(
-            f"  • {source_file} — page {page_number}, chunk {chunk_ref} (relevance: {score:.2f})"
-        )
+        file_data[source_file]["pages"].add(page_number)
+        if score > file_data[source_file]["best_score"]:
+            file_data[source_file]["best_score"] = score
 
-        if source_file not in unique_sources:
-            unique_sources.append(source_file)
+    # --- Build source lines ---
+    source_lines: list[str] = []
+    unique_sources: list[str] = list(file_data.keys())
+
+    for filename, data in file_data.items():
+        best_score = data["best_score"]
+        pages = sorted(data["pages"])
+        dot = _relevance_dot(best_score)
+
+        # Page display: single page or comma-separated list
+        page_label = ", ".join(str(p) for p in pages)
+        page_display = f"Page {page_label}" if len(pages) == 1 else f"Pages {page_label}"
+
+        # Clickable link anchored to first (lowest) page
+        first_page = pages[0]
+        link = f"/files/{filename}#page={first_page}"
+
+        source_lines.append(f"  {dot}  [{filename} ({page_display})]({link})")
 
     sources_block = "\n".join(source_lines)
-    answer = f"{answer}\n\n**Sources:**\n{sources_block}"
+    answer = f"{answer}\n\nSources:\n{sources_block}"
 
-    logger.info("formatter: %d source references from %d files", len(source_lines), len(unique_sources))
+    logger.info(
+        "formatter: %d source file(s) referenced",
+        len(unique_sources),
+    )
     return {"answer": answer, "sources": unique_sources}
 
 
