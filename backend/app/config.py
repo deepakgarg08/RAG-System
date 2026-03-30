@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     # --- File storage (DEMO) ---
     upload_dir: str = Field(default="./uploads", alias="UPLOAD_DIR")
+    registry_path: str = Field(default="./ingestion_registry.json", alias="REGISTRY_PATH")
 
     # --- ETL parameters ---
     max_chunk_size: int = Field(default=1000, alias="MAX_CHUNK_SIZE")

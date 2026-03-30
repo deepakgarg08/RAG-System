@@ -8,7 +8,7 @@ import time
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.etl.pipeline import IngestionPipeline
+from app.etl.pipeline import IngestionPipeline, ModelMismatchError
 from app.models import IngestResponse
 from app.storage.local_storage import LocalStorage
 
@@ -62,7 +62,15 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
     logger.info("ingest_document: saved to '%s'", saved_path)
 
     # --- Run ETL pipeline ---
-    pipeline = IngestionPipeline()
+    # ModelMismatchError is raised at construction time if the registry was
+    # built with a different embedding model. Return 409 so the client knows
+    # the database must be cleared and rebuilt before ingestion can continue.
+    try:
+        pipeline = IngestionPipeline()
+    except ModelMismatchError as exc:
+        logger.error("ingest_document: model mismatch — %s", exc)
+        raise HTTPException(status_code=409, detail=str(exc))
+
     result = pipeline.ingest(saved_path)
 
     elapsed = time.perf_counter() - start
@@ -74,6 +82,9 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
         elapsed,
     )
 
+    if result["status"] == "skipped":
+        logger.info("ingest_document: '%s' already ingested, returning 200 skipped", filename)
+
     return IngestResponse(
         filename=result["filename"],
         file_type=result["file_type"],
@@ -81,4 +92,5 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
         chunks_created=result["chunks_created"],
         status=result["status"],
         error=result.get("error"),
+        reason=result.get("reason"),
     )

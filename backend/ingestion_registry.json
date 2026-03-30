@@ -1,0 +1,29 @@
+{
+  "embedding_model": "BAAI/bge-m3",
+  "files": [
+    {
+      "filename": "sample_contract.pdf",
+      "checksum": "md5:8c292227f0f9fdbb5f19034f0f00f94b",
+      "embedding_model": "BAAI/bge-m3",
+      "ingestion_timestamp": "2026-03-30T10:43:51Z",
+      "chunk_count": 0,
+      "status": "success"
+    },
+    {
+      "filename": "corrupt.pdf",
+      "checksum": "md5:b48c63c0f060815310d6f2adde79be4b",
+      "embedding_model": "BAAI/bge-m3",
+      "ingestion_timestamp": "2026-03-30T10:43:51Z",
+      "chunk_count": 0,
+      "status": "success"
+    },
+    {
+      "filename": "empty.pdf",
+      "checksum": "md5:d41d8cd98f00b204e9800998ecf8427e",
+      "embedding_model": "BAAI/bge-m3",
+      "ingestion_timestamp": "2026-03-30T10:43:52Z",
+      "chunk_count": 0,
+      "status": "success"
+    }
+  ]
+}

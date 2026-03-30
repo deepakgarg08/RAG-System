@@ -91,11 +91,14 @@ def temp_chroma_db(tmp_path, monkeypatch):
     Uses monkeypatch.setattr on the shared settings singleton so every module
     that already imported `settings` (e.g. chroma_loader, retriever) picks up
     the temp path without needing a module reload.
+    Also isolates the ingestion registry so tests don't share state.
     """
     from app.config import settings
 
     chroma_path = str(tmp_path / "chroma")
+    registry_path = str(tmp_path / "ingestion_registry.json")
     monkeypatch.setattr(settings, "chroma_persist_path", chroma_path)
+    monkeypatch.setattr(settings, "registry_path", registry_path)
     yield chroma_path
 
 
@@ -259,8 +262,10 @@ def temp_chroma_dir(tmp_path, monkeypatch):
     upload_path = str(tmp_path / "uploads")
     (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
 
+    registry_path = str(tmp_path / "ingestion_registry.json")
     monkeypatch.setattr(settings, "chroma_persist_path", chroma_path)
     monkeypatch.setattr(settings, "upload_dir", upload_path)
+    monkeypatch.setattr(settings, "registry_path", registry_path)
     yield chroma_path
 
 
