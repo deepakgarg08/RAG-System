@@ -111,7 +111,19 @@ class DocumentChunker:
             separators=["\n\n", "\n", ". ", " ", ""],
         )
 
-    def chunk(self, pages: list[dict], metadata: dict) -> list[dict]:
+    def chunk(
+        self,
+        pages: list[dict],
+        metadata: dict,
+        file_size_kb: int = 0,
+        total_pages: int = 0,
+        checksum: str = "",
+        extraction_method: str = "",
+        is_scanned: bool = False,
+        embedding_model: str = "BAAI/bge-m3",
+        upload_timestamp: str = "",
+        uploaded_by: str = "anonymous",
+    ) -> list[dict]:
         """Split page-tagged text into chunks with full source attribution metadata.
 
         Detects content type and delegates to the appropriate strategy:
@@ -123,10 +135,22 @@ class DocumentChunker:
             pages: List of {"page_number": int, "text": str} from an extractor.
             metadata: Base metadata dict — must include source_file, file_type,
                       language. chunk_index, total_chunks, page_number added here.
+            file_size_kb: File size in kilobytes.
+            total_pages: Total number of pages in the source document.
+            checksum: MD5 checksum of the source file, e.g. "md5:a3f8c2d1...".
+            extraction_method: Extractor used, e.g. "pymupdf" or "ocr_tesseract".
+            is_scanned: True if the document was processed via OCR.
+            embedding_model: Name of the embedding model used, e.g. "BAAI/bge-m3".
+            upload_timestamp: ISO 8601 UTC timestamp of when the file was uploaded.
+            uploaded_by: Identity of the uploader. Defaults to "anonymous".
 
         Returns:
             List of chunk dicts, each with 'text' and 'metadata' keys.
             Returns empty list if all pages are empty.
+
+        Note:
+            contract_type (NDA / Service / Vendor) is a planned future field —
+            see ContentTypeDetector for the extension point.
         """
         if not pages or not any(p.get("text", "").strip() for p in pages):
             return []
@@ -138,12 +162,34 @@ class DocumentChunker:
             content_type,
         )
 
+        # Build document-level metadata shared across all chunks for this file.
+        # Chunk-level fields (chunk_index, total_chunks, page_number, char_count,
+        # text_preview, chunking_strategy) are added per-chunk in _make_chunk().
+        doc_metadata: dict = {
+            # DOCUMENT group
+            "source_file":       metadata.get("source_file", ""),
+            "file_type":         metadata.get("file_type", ""),
+            "file_size_kb":      file_size_kb,
+            "total_pages":       total_pages,
+            "checksum":          checksum,
+            # PROCESSING group
+            "language":          metadata.get("language", ""),
+            "content_type":      content_type,
+            "extraction_method": extraction_method,
+            "is_scanned":        is_scanned,
+            "embedding_model":   embedding_model,
+            "ingestion_version": "1.0",
+            # AUDIT group
+            "upload_timestamp":  upload_timestamp,
+            "uploaded_by":       uploaded_by,
+        }
+
         if content_type == "qa":
-            chunks = self._chunk_qa(pages, metadata)
+            chunks = self._chunk_qa(pages, doc_metadata)
         elif content_type == "legal":
-            chunks = self._chunk_legal(pages, metadata)
+            chunks = self._chunk_legal(pages, doc_metadata)
         else:
-            chunks = self._chunk_narrative(pages, metadata)
+            chunks = self._chunk_narrative(pages, doc_metadata)
 
         # Fallback: if strategy produced nothing, use narrative
         if not chunks:
@@ -151,7 +197,7 @@ class DocumentChunker:
                 "DocumentChunker: %s strategy produced 0 chunks, falling back to narrative",
                 content_type,
             )
-            chunks = self._chunk_narrative(pages, metadata)
+            chunks = self._chunk_narrative(pages, doc_metadata)
 
         total = len(chunks)
         for chunk in chunks:
@@ -204,7 +250,7 @@ class DocumentChunker:
                     if current_lines:
                         pair_text = "\n".join(current_lines)
                         chunks.append(self._make_chunk(
-                            pair_text, base_metadata, chunk_index, current_page
+                            pair_text, base_metadata, chunk_index, current_page, "qa_pair"
                         ))
                         chunk_index += 1
                     current_lines = [stripped]
@@ -216,7 +262,7 @@ class DocumentChunker:
             if current_lines:
                 pair_text = "\n".join(current_lines)
                 chunks.append(self._make_chunk(
-                    pair_text, base_metadata, chunk_index, current_page
+                    pair_text, base_metadata, chunk_index, current_page, "qa_pair"
                 ))
                 chunk_index += 1
 
@@ -258,7 +304,8 @@ class DocumentChunker:
                 section_text = "\n".join(current_lines).strip()
                 if section_text:
                     chunks.append(self._make_chunk(
-                        section_text, base_metadata, chunk_index, current_page
+                        section_text, base_metadata, chunk_index, current_page,
+                        "section_boundary"
                     ))
                     chunk_index += 1
                 current_lines = [line]
@@ -271,7 +318,8 @@ class DocumentChunker:
             section_text = "\n".join(current_lines).strip()
             if section_text:
                 chunks.append(self._make_chunk(
-                    section_text, base_metadata, chunk_index, current_page
+                    section_text, base_metadata, chunk_index, current_page,
+                    "section_boundary"
                 ))
 
         # If no section headers were found, split the combined text by char size
@@ -311,7 +359,8 @@ class DocumentChunker:
                 if not chunk_text.strip():
                     continue
                 chunks.append(self._make_chunk(
-                    chunk_text, base_metadata, chunk_index, page_number
+                    chunk_text, base_metadata, chunk_index, page_number,
+                    "recursive_1000_200"
                 ))
                 chunk_index += 1
 
@@ -324,17 +373,24 @@ class DocumentChunker:
     @staticmethod
     def _make_chunk(
         text: str,
-        base_metadata: dict,
+        doc_metadata: dict,
         chunk_index: int,
         page_number: int,
+        chunking_strategy: str,
     ) -> dict:
         """Build a single chunk dict with full metadata.
 
+        Merges document-level metadata (set once in chunk()) with chunk-level
+        fields that are unique to each individual chunk.
+
         Args:
-            text: The chunk text.
-            base_metadata: Base metadata from the pipeline.
-            chunk_index: Sequential index of this chunk within the document.
+            text: The chunk text. Full text goes in the 'text' field;
+                  only the first 100 chars are stored in metadata as text_preview.
+            doc_metadata: Document-level metadata built in chunk().
+            chunk_index: Sequential 0-based index of this chunk within the document.
             page_number: Page in the source document where this chunk starts.
+            chunking_strategy: Strategy used — "qa_pair", "section_boundary",
+                               or "recursive_1000_200".
 
         Returns:
             Chunk dict with 'text' and 'metadata' keys.
@@ -342,10 +398,13 @@ class DocumentChunker:
         return {
             "text": text,
             "metadata": {
-                **base_metadata,
-                "chunk_index": chunk_index,
-                "total_chunks": 0,   # filled in by chunk() after all chunks are known
-                "page_number": page_number,
-                "char_count": len(text),
+                **doc_metadata,
+                # CHUNK group — unique per chunk
+                "chunk_index":       chunk_index,
+                "total_chunks":      0,          # filled in by chunk() after all chunks are known
+                "page_number":       page_number,
+                "char_count":        len(text),
+                "text_preview":      text[:100],  # first 100 chars only — full text in 'text' field
+                "chunking_strategy": chunking_strategy,
             },
         }
