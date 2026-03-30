@@ -28,15 +28,21 @@ logger = logging.getLogger(__name__)
 _QA_LINE_RE = re.compile(r"^\s*Q\s*[:.]\s*", re.IGNORECASE | re.MULTILINE)
 
 # Legal section header: "Section 1", "ARTICLE 2.", "§ 3", "Clause 4"
+# Also covers German: "Abschnitt 1", "Artikel 2", "§ 3 Vertragsgegenstand"
 _LEGAL_HEADER_RE = re.compile(
-    r"^(?:SECTION|Section|ARTICLE|Article|CLAUSE|Clause|§)\s*\d+",
+    r"^(?:SECTION|Section|ARTICLE|Article|CLAUSE|Clause|§|Abschnitt|Artikel|Ziffer)\s*\d+",
     re.MULTILINE,
 )
 
-# Legal vocabulary signals
+# Legal vocabulary signals — English and German
 _LEGAL_KEYWORDS = [
+    # English
     "whereas", "hereinafter", "termination", "indemnification",
     "confidentiality", "governing law", "force majeure",
+    # German
+    "hiermit", "kündigung", "haftung", "vertragspartner",
+    "auftragnehmer", "auftraggeber", "gewährleistung",
+    "datenschutz", "vertragslaufzeit", "gerichtsstand",
 ]
 
 
@@ -49,6 +55,7 @@ class ContentTypeDetector:
 
     Checks the first ~3000 characters for structural signals before falling
     back to a vocabulary scan. No API calls — purely rule-based.
+    Supports English and German legal documents.
     """
 
     def detect(self, pages: list[dict]) -> str:

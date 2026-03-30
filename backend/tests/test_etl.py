@@ -459,6 +459,74 @@ class TestDocumentChunkerEdgeCases:
 
 
 # ---------------------------------------------------------------------------
+# ContentTypeDetector — German language support
+# ---------------------------------------------------------------------------
+
+class TestContentTypeDetectorGerman:
+    """Tests for German legal document detection in ContentTypeDetector."""
+
+    def test_detects_german_legal_via_paragraph_symbol(self):
+        """§ N headers are the most common German legal structure signal."""
+        from app.etl.transformers.chunker import ContentTypeDetector
+        detector = ContentTypeDetector()
+        text = (
+            "§ 1 Vertragsgegenstand\nDer Auftragnehmer erbringt Dienstleistungen.\n\n"
+            "§ 2 Vergütung\nDie Vergütung beträgt 5.000 EUR monatlich.\n\n"
+            "§ 3 Kündigung\nDer Vertrag kann mit 30 Tagen Frist gekündigt werden.\n"
+        )
+        result = detector.detect(_pages(text))
+        assert result == "legal"
+
+    def test_detects_german_legal_via_artikel_headers(self):
+        """Artikel N is a common German contract section header."""
+        from app.etl.transformers.chunker import ContentTypeDetector
+        detector = ContentTypeDetector()
+        text = (
+            "Artikel 1 Geltungsbereich\nDieser Vertrag gilt für alle Parteien.\n\n"
+            "Artikel 2 Haftung\nDie Haftung ist auf direkten Schaden beschränkt.\n"
+        )
+        result = detector.detect(_pages(text))
+        assert result == "legal"
+
+    def test_detects_german_legal_via_keywords(self):
+        """German legal keywords alone should trigger legal classification."""
+        from app.etl.transformers.chunker import ContentTypeDetector
+        detector = ContentTypeDetector()
+        # No section headers — only vocabulary signals
+        text = (
+            "Der Auftragnehmer übernimmt keine Haftung für indirekte Schäden. "
+            "Der Vertrag unterliegt dem deutschen Recht (Gerichtsstand München). "
+            "Die Gewährleistung beträgt 24 Monate ab Lieferdatum. "
+            "Datenschutz und Vertragslaufzeit sind in der Anlage geregelt."
+        )
+        result = detector.detect(_pages(text))
+        assert result == "legal"
+
+    def test_german_abschnitt_header_detected(self):
+        """Abschnitt N is used in German regulatory and commercial contracts."""
+        from app.etl.transformers.chunker import ContentTypeDetector
+        detector = ContentTypeDetector()
+        text = (
+            "Abschnitt 1 Allgemeine Bestimmungen\nDieser Vertrag regelt die Zusammenarbeit.\n\n"
+            "Abschnitt 2 Leistungsumfang\nDer Auftragnehmer erbringt folgende Leistungen.\n"
+        )
+        result = detector.detect(_pages(text))
+        assert result == "legal"
+
+    def test_german_narrative_text_not_misclassified_as_legal(self):
+        """Plain German prose without legal signals stays 'narrative'."""
+        from app.etl.transformers.chunker import ContentTypeDetector
+        detector = ContentTypeDetector()
+        text = (
+            "Das Unternehmen wurde im Jahr 2005 gegründet und hat seinen Sitz in Berlin. "
+            "Es beschäftigt über 500 Mitarbeiter und ist in der Technologiebranche tätig. "
+            "Die Produkte werden weltweit vertrieben."
+        )
+        result = detector.detect(_pages(text))
+        assert result == "narrative"
+
+
+# ---------------------------------------------------------------------------
 # Additional ChromaLoader tests
 # ---------------------------------------------------------------------------
 
