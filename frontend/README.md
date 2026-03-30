@@ -1,64 +1,73 @@
-# Frontend — Riverty Contract Review
+# React + TypeScript + Vite
 
-React + TypeScript + Vite web application for the legal team interface.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Tech Stack
-- **React 18** — UI framework
-- **TypeScript** — type safety
-- **Vite** — build tool and dev server
-- **Fetch API / EventSource** — backend communication (no extra HTTP library needed)
+Currently, two official plugins are available:
 
-## Layout
-Two-panel layout designed as a professional legal tool:
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-```
-┌─────────────────────────┬──────────────────────────────┐
-│   Document Management   │       Query Interface         │
-│                         │                               │
-│  [Upload Contract]      │  Ask a question...  [Send]   │
-│                         │                               │
-│  📄 techcorp_nda.pdf    │  > Does the TechCorp NDA     │
-│  📄 datasys_svc.pdf     │    have a GDPR clause?       │
-│  📄 mueller_vtg.txt     │                               │
-│                         │  Based on the provided       │
-│                         │  contracts, the TechCorp     │
-│                         │  NDA (Section 7.2) contains… │
-│                         │                               │
-│                         │  Suggested questions:        │
-│                         │  · Which contracts are        │
-│                         │    missing a GDPR clause?    │
-└─────────────────────────┴──────────────────────────────┘
-```
+## React Compiler
 
-## Key Components
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-| Component | Responsibility |
-|---|---|
-| `FileUpload` | Drag-and-drop or browse to upload contracts via POST /api/ingest |
-| `DocumentList` | Shows uploaded contracts with status |
-| `QueryInput` | Text input + submit button for questions |
-| `StreamingResponse` | Renders SSE token stream as progressive text |
-| `SuggestedQueries` | Pre-built question buttons for common legal checks |
+## Expanding the ESLint configuration
 
-## Backend Communication
-- **File upload:** `POST /api/ingest` — multipart form data
-- **Query:** `POST /api/query` — opens EventSource, renders token stream
-- **Health check:** `GET /health` — shows document count and mode
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## Design Principles
-- Professional legal tool — clean, minimal, no animations or flashy UI
-- Readable typography — legal text needs to be easy to scan
-- Source references displayed inline with answers
-- No authentication in demo mode
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-## How to Run
-```bash
-npm install
-npm run dev    # starts on http://localhost:3000
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-## How to Build for Production
-```bash
-npm run build       # outputs to dist/
-npm run preview     # preview the production build locally
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
