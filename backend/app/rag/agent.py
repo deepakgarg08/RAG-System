@@ -9,7 +9,7 @@ from typing import TypedDict, Annotated, AsyncGenerator
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, AsyncAzureOpenAI
 
 from app.config import settings
 from app.rag.retriever import ContractRetriever
@@ -19,19 +19,47 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # DEMO MODE: OpenAI API — direct API key, simple setup
 # PRODUCTION SWAP → Azure OpenAI (AWS: Bedrock):
-#   Change client initialisation below:
-#   FROM: AsyncOpenAI(api_key=settings.openai_api_key)
-#   TO:   AsyncAzureOpenAI(
-#             api_key=settings.azure_openai_api_key,
-#             azure_endpoint=settings.azure_openai_endpoint,
-#             api_version=settings.azure_openai_api_version,
-#         )
-#   Model name stays the same: "gpt-4o"
-#   Why Azure OpenAI for production: data never leaves Microsoft tenant,
+#   Set APP_ENV=production in .env — no code changes required.
+#   _get_llm_client() and _LLM_MODEL branch automatically.
+#   Why Azure OpenAI: data never leaves Microsoft tenant,
 #   required for legal document compliance at Riverty
 # ============================================================
 
-_LLM_MODEL = "gpt-4o"
+
+def _get_llm_client() -> AsyncOpenAI | AsyncAzureOpenAI:
+    """Return the correct async LLM client based on APP_ENV.
+
+    Returns:
+        AsyncAzureOpenAI when APP_ENV=production (data stays in Azure tenant).
+        AsyncOpenAI otherwise (demo/development — direct OpenAI API).
+    """
+    if settings.app_env == "production":
+        # ============================================================
+        # PRODUCTION: Azure OpenAI
+        # AWS equivalent: Amazon Bedrock
+        # Set APP_ENV=production in .env to activate
+        # ============================================================
+        return AsyncAzureOpenAI(
+            api_key=settings.azure_openai_api_key,
+            azure_endpoint=settings.azure_openai_endpoint,
+            api_version=settings.azure_openai_api_version,
+        )
+    # ============================================================
+    # DEMO: Plain OpenAI API
+    # Switch to production: set APP_ENV=production in .env
+    # ============================================================
+    return AsyncOpenAI(api_key=settings.openai_api_key)
+
+
+def _get_model_name() -> str:
+    """Return the deployment/model name for the active environment.
+
+    Returns:
+        Azure deployment name in production, 'gpt-4o' in demo.
+    """
+    if settings.app_env == "production":
+        return settings.azure_openai_deployment_name
+    return "gpt-4o"
 
 _ROUTER_PROMPT = """\
 Classify this legal contract query into exactly one category:
@@ -153,9 +181,9 @@ async def query_router(state: AgentState) -> dict:
     Returns:
         Partial state update with query_type set.
     """
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = _get_llm_client()
     response = await client.chat.completions.create(
-        model=_LLM_MODEL,
+        model=_get_model_name(),
         messages=[
             {
                 "role": "user",
@@ -210,9 +238,9 @@ async def reasoner(state: AgentState) -> dict:
         return {}
 
     context = _build_context(state["retrieved_chunks"])
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = _get_llm_client()
     response = await client.chat.completions.create(
-        model=_LLM_MODEL,
+        model=_get_model_name(),
         messages=[
             {
                 "role": "system",

@@ -5,12 +5,12 @@ DEMO:       BAAI/bge-m3 via sentence-transformers — free, fully offline,
             multilingual (100+ languages including German), 1024-dim vectors,
             cross-lingual retrieval (English queries match German document chunks).
 
-PRODUCTION: Azure OpenAI text-embedding-3-large — swap the implementation block below.
+PRODUCTION: Azure OpenAI text-embedding-3-large — set APP_ENV=production in .env.
+            No code changes required; the service branches automatically.
 """
 import logging
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from app.config import settings
 
@@ -22,26 +22,33 @@ logger = logging.getLogger(__name__)
 #   - First run downloads ~2.3 GB to ~/.cache/huggingface/ (once only)
 #   - Subsequent runs load from local cache — no internet needed
 # PRODUCTION SWAP → Azure OpenAI text-embedding-3-large (AWS: Bedrock Titan):
-#   1. Comment out the SentenceTransformer block below
-#   2. Uncomment the AzureOpenAI block
-#   3. Set AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT in .env
-#   4. Clear chroma_db/ and re-ingest (different dims: 1024 → 3072)
+#   Set APP_ENV=production in .env — client switches automatically.
+#   NOTE: dims change 1024 → 3072; clear chroma_db/ and re-ingest.
 #   Why Azure OpenAI: data never leaves Microsoft tenant — required for
 #   legal document compliance at Riverty
 # ============================================================
 
-_EMBEDDING_MODEL = "BAAI/bge-m3"
-_EMBEDDING_DIMS = 1024
-_BATCH_SIZE = 32
+# Active model name and dimensions — set by APP_ENV at import time.
+# Imported by pipeline.py and ingestion_registry.py for metadata tagging.
+if settings.app_env == "production":
+    _EMBEDDING_MODEL = "text-embedding-3-large"
+    _EMBEDDING_DIMS = 3072
+    _BATCH_SIZE = 20
+else:
+    _EMBEDDING_MODEL = "BAAI/bge-m3"
+    _EMBEDDING_DIMS = 1024
+    _BATCH_SIZE = 32
 
 # ------------------------------------------------------------------
-# DEMO: sentence-transformers local model (currently active)
+# DEMO: sentence-transformers local model (lazy-loaded, cached globally)
 # ------------------------------------------------------------------
-_local_model: SentenceTransformer | None = None
+_local_model = None  # type: ignore[assignment]
 
 
-def _get_local_model() -> SentenceTransformer:
+def _get_local_model():  # type: ignore[return]
     """Lazy-load the bge-m3 model (downloaded once, cached locally)."""
+    from sentence_transformers import SentenceTransformer  # local import — not loaded in production
+
     global _local_model
     if _local_model is None:
         logger.info(
@@ -55,54 +62,63 @@ def _get_local_model() -> SentenceTransformer:
 
 
 # ------------------------------------------------------------------
-# PRODUCTION: Azure OpenAI (uncomment to swap)
+# PRODUCTION: Azure OpenAI embeddings client helper
 # ------------------------------------------------------------------
-# from openai import AzureOpenAI
-# _EMBEDDING_MODEL = "text-embedding-3-large"
-# _EMBEDDING_DIMS = 3072
-# _BATCH_SIZE = 20
-#
-# def _get_azure_client() -> AzureOpenAI:
-#     return AzureOpenAI(
-#         api_key=settings.azure_openai_api_key,
-#         azure_endpoint=settings.azure_openai_endpoint,
-#         api_version=settings.azure_openai_api_version,
-#     )
-#
-# -- OR direct OpenAI (demo alternative to local model) --
-# from openai import OpenAI
-# _EMBEDDING_MODEL = "text-embedding-3-large"
-# _EMBEDDING_DIMS = 3072
-# _BATCH_SIZE = 20
-#
-# def _get_openai_client() -> OpenAI:
-#     return OpenAI(api_key=settings.openai_api_key)
+
+def _get_azure_client():  # type: ignore[return]
+    """Return a synchronous AzureOpenAI client for embeddings."""
+    from openai import AzureOpenAI  # local import — not loaded in demo
+
+    return AzureOpenAI(
+        api_key=settings.azure_openai_api_key,
+        azure_endpoint=settings.azure_openai_endpoint,
+        api_version=settings.azure_openai_api_version,
+    )
 
 
 class EmbeddingService:
     """Converts text to dense embedding vectors.
 
-    Demo implementation uses BAAI/bge-m3 locally via sentence-transformers.
-    Production implementation uses Azure OpenAI text-embedding-3-large.
+    Branches automatically on APP_ENV:
+      - demo/development: BAAI/bge-m3 local via sentence-transformers (offline, 1024-dim)
+      - production:       Azure OpenAI text-embedding-3-large (3072-dim, data stays in Azure)
     """
 
     def __init__(self) -> None:
-        """Pre-load the local model so the first embed call is not slow."""
-        _get_local_model()
-
-    # ------------------------------------------------------------------
-    # DEMO implementation (bge-m3 local)
-    # ------------------------------------------------------------------
+        """Initialise the embedding backend for the active environment."""
+        self.mode = "azure" if settings.app_env == "production" else "local"
+        self.model_name = _EMBEDDING_MODEL
+        if self.mode == "local":
+            _get_local_model()  # pre-load so first embed call is fast
+        logger.info(
+            "EmbeddingService: mode=%s, model=%s, dims=%d",
+            self.mode, self.model_name, _EMBEDDING_DIMS,
+        )
 
     def get_embedding(self, text: str) -> list[float]:
-        """Embed a single text string into a 1024-dimensional vector.
+        """Embed a single text string into a dense vector.
 
         Args:
             text: Text to embed. Normalised embeddings for cosine similarity.
 
         Returns:
-            List of 1024 floats.
+            List of floats (1024-dim in demo, 3072-dim in production).
         """
+        if self.mode == "azure":
+            # ============================================================
+            # PRODUCTION: Azure OpenAI text-embedding-3-large
+            # Data stays within Azure tenant — legal compliance requirement
+            # ============================================================
+            client = _get_azure_client()
+            response = client.embeddings.create(
+                input=text.replace("\n", " "),
+                model=_EMBEDDING_MODEL,
+            )
+            return response.data[0].embedding
+
+        # ============================================================
+        # DEMO: local BAAI/bge-m3 via sentence-transformers (offline)
+        # ============================================================
         model = _get_local_model()
         vector: np.ndarray = model.encode(
             text.replace("\n", " "),
@@ -117,17 +133,39 @@ class EmbeddingService:
         return vector.tolist()
 
     def get_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
-        """Embed a list of texts in a single model pass (no per-text API calls).
+        """Embed a list of texts in one pass.
 
         Args:
             texts: List of text strings to embed.
 
         Returns:
-            List of 1024-dim float vectors, one per input text, in input order.
+            One float vector per input text, in input order.
         """
         if not texts:
             return []
 
+        if self.mode == "azure":
+            # ============================================================
+            # PRODUCTION: Azure OpenAI — batched in groups of _BATCH_SIZE
+            # ============================================================
+            client = _get_azure_client()
+            results: list[list[float]] = []
+            for i in range(0, len(texts), _BATCH_SIZE):
+                batch = [t.replace("\n", " ") for t in texts[i : i + _BATCH_SIZE]]
+                response = client.embeddings.create(input=batch, model=_EMBEDDING_MODEL)
+                results.extend(
+                    item.embedding
+                    for item in sorted(response.data, key=lambda x: x.index)
+                )
+            logger.info(
+                "EmbeddingService.get_embeddings_batch (azure): %d texts → %d-dim each",
+                len(texts), _EMBEDDING_DIMS,
+            )
+            return results
+
+        # ============================================================
+        # DEMO: single model forward pass for all texts at once
+        # ============================================================
         model = _get_local_model()
         clean = [t.replace("\n", " ") for t in texts]
         vectors: np.ndarray = model.encode(
@@ -137,30 +175,11 @@ class EmbeddingService:
             show_progress_bar=False,
         )
         logger.info(
-            "EmbeddingService.get_embeddings_batch: %d texts → %d-dim vectors each",
+            "EmbeddingService.get_embeddings_batch (local): %d texts → %d-dim each",
             len(texts),
             vectors.shape[1] if len(vectors.shape) > 1 else _EMBEDDING_DIMS,
         )
         return [v.tolist() for v in vectors]
-
-    # ------------------------------------------------------------------
-    # PRODUCTION implementation (uncomment and replace above when swapping)
-    # ------------------------------------------------------------------
-    # def get_embedding(self, text: str) -> list[float]:
-    #     client = _get_azure_client()
-    #     response = client.embeddings.create(
-    #         input=text.replace("\n", " "), model=_EMBEDDING_MODEL
-    #     )
-    #     return response.data[0].embedding
-    #
-    # def get_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
-    #     client = _get_azure_client()
-    #     results = []
-    #     for i in range(0, len(texts), _BATCH_SIZE):
-    #         batch = [t.replace("\n", " ") for t in texts[i:i + _BATCH_SIZE]]
-    #         response = client.embeddings.create(input=batch, model=_EMBEDDING_MODEL)
-    #         results.extend(item.embedding for item in sorted(response.data, key=lambda x: x.index))
-    #     return results
 
 
 # ---------------------------------------------------------------------------

@@ -22,6 +22,9 @@ export default function App(): React.ReactElement {
   const [question, setQuestion] = useState('');
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [connected, setConnected] = useState(false);
+  // connectionChecked becomes true after the first health check resolves (success or failure).
+  // Until then, the header shows "Connecting…"; after, it shows "Connected" or "Disconnected".
+  const [connectionChecked, setConnectionChecked] = useState(false);
 
   async function fetchHealth(): Promise<void> {
     try {
@@ -30,6 +33,8 @@ export default function App(): React.ReactElement {
       setConnected(true);
     } catch {
       setConnected(false);
+    } finally {
+      setConnectionChecked(true);
     }
   }
 
@@ -95,5 +100,5 @@ export default function App(): React.ReactElement {
     </div>
   );
 
-  return <AppLayout uploadPanel={uploadPanel} queryPanel={queryPanel} health={health} connected={connected} />;
+  return <AppLayout uploadPanel={uploadPanel} queryPanel={queryPanel} health={health} connected={connected} connectionChecked={connectionChecked} />;
 }

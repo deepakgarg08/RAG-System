@@ -1,5 +1,22 @@
 # Azure Services — Production Configuration Guide
 
+## One-line production switch
+
+Set `APP_ENV=production` in `backend/.env`. No code changes required.
+All four components switch automatically:
+
+| Component | `APP_ENV=development` (demo) | `APP_ENV=production` |
+|---|---|---|
+| LLM | `AsyncOpenAI` (gpt-4o direct) | `AsyncAzureOpenAI` (gpt-4o via Azure) |
+| Embeddings | `BAAI/bge-m3` local, 1024-dim | Azure `text-embedding-3-large`, 3072-dim |
+| Vector store | ChromaDB local | Azure AI Search |
+| File storage | Local filesystem (`UPLOAD_DIR`) | Azure Blob Storage |
+
+> **Re-ingestion required** when switching to production: embedding dimensions change
+> from 1024 to 3072. Clear `chroma_db/` and re-upload all contracts.
+
+---
+
 ## Service Mapping
 
 | Demo Component | Azure Service | AWS Equivalent | Riverty Tier Recommendation |

@@ -53,9 +53,10 @@ def mock_openai_embeddings(monkeypatch):
     mock_model = _make_mock_st_model()
     monkeypatch.setattr(emb_module, "_local_model", mock_model)
     monkeypatch.setattr(emb_module, "_service", None)  # reset singleton
-
-    with patch("app.rag.embeddings.SentenceTransformer", return_value=mock_model):
-        yield mock_model
+    # SentenceTransformer is now a local import inside _get_local_model() so it
+    # cannot be patched at module level. Patching _local_model directly is sufficient
+    # because _get_local_model() short-circuits when _local_model is already set.
+    yield mock_model
 
 
 @pytest.fixture
@@ -242,8 +243,9 @@ def mock_openai_embedding(monkeypatch):
     monkeypatch.setattr(emb_module, "_local_model", mock_model)
     monkeypatch.setattr(emb_module, "_service", None)
 
-    with patch("app.rag.embeddings.SentenceTransformer", return_value=mock_model), \
-         patch("app.etl.loaders.chroma_loader.get_embeddings",
+    # SentenceTransformer is a local import inside _get_local_model() — cannot be
+    # patched at module level. Patching _local_model is sufficient.
+    with patch("app.etl.loaders.chroma_loader.get_embeddings",
                side_effect=lambda texts: [fake_vector] * len(texts)):
         yield mock_model
 
