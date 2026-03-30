@@ -13,6 +13,8 @@ from app.config import settings
 from app.api.routes.health import router as health_router
 from app.api.routes.ingest import router as ingest_router
 from app.api.routes.query import router as query_router
+from app.api.routes.files import router as files_router
+from app.api.routes.suggestions import router as suggestions_router
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,8 @@ app.add_middleware(
 )
 
 # --- Route registration ---
-app.include_router(health_router)                    # GET /health
-app.include_router(ingest_router, prefix="/api")     # POST /api/ingest
-app.include_router(query_router, prefix="/api")      # POST /api/query
+app.include_router(health_router)                         # GET /health
+app.include_router(ingest_router, prefix="/api")          # POST /api/ingest
+app.include_router(query_router, prefix="/api")           # POST /api/query
+app.include_router(files_router, prefix="/api")           # GET  /api/files/{filename}
+app.include_router(suggestions_router, prefix="/api")     # GET  /api/suggested-questions

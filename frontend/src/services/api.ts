@@ -6,7 +6,7 @@
 
 import type { HealthResponse, IngestResponse } from '../types';
 
-const BASE_URL = 'http://localhost:8000';
+export const BASE_URL = 'http://localhost:8000';
 
 export async function uploadContract(file: File): Promise<IngestResponse> {
   const formData = new FormData();
@@ -26,4 +26,11 @@ export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${BASE_URL}/health`);
   if (!response.ok) throw new Error('Health check failed');
   return response.json() as Promise<HealthResponse>;
+}
+
+export async function getSuggestedQuestions(): Promise<string[]> {
+  const response = await fetch(`${BASE_URL}/api/suggested-questions`);
+  if (!response.ok) return [];
+  const data = (await response.json()) as { questions: string[] };
+  return data.questions ?? [];
 }

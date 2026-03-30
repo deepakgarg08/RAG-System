@@ -86,6 +86,7 @@ body {
 
   main > div:first-child {
     width: 100% !important;
+    flex-shrink: unset !important;
     border-right: none !important;
     border-bottom: 1px solid var(--color-gray-300);
   }

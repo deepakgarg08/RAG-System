@@ -1,28 +1,48 @@
 /**
- * SuggestedQueries.tsx — Pre-built query pill buttons for common legal checks.
- * Clicking a pill fills the query input and immediately submits.
+ * SuggestedQueries.tsx — Dynamically generated query pill buttons.
+ * Fetches 4 questions from GET /api/suggested-questions on mount so
+ * they reflect the actual documents indexed in the database.
  */
+
+import { useEffect, useState } from 'react';
+import { getSuggestedQuestions } from '../../services/api';
 
 interface SuggestedQueriesProps {
   onSelect: (query: string) => void;
   disabled: boolean;
 }
 
-const SUGGESTIONS = [
-  "Which contracts don't have a GDPR clause?",
-  'Find contracts where company name needs updating',
-  'Show contracts with termination clauses',
-  'Which contracts are from 2022?',
-];
-
 export default function SuggestedQueries({ onSelect, disabled }: SuggestedQueriesProps): React.ReactElement {
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getSuggestedQuestions()
+      .then(setQuestions)
+      .catch(() => setQuestions([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div>
+        <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-gray-600)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+          Suggested questions
+        </p>
+        <p style={{ fontSize: 13, color: 'var(--color-gray-600)' }}>Loading…</p>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) return <></>;
+
   return (
     <div>
-      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-gray-600)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-gray-600)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
         Suggested questions
       </p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {SUGGESTIONS.map((q) => (
+        {questions.map((q) => (
           <button
             key={q}
             onClick={() => onSelect(q)}

@@ -1,38 +1,20 @@
 /**
  * AppLayout.tsx — Root layout: fixed navy header, two-panel body, footer.
- * Polls GET /health every 30 seconds to keep the document count and
- * connection status dot up to date.
+ * Health state is owned by App.tsx and passed in as props so other
+ * components (e.g. QueryInput) can react to the live document count.
  */
 
-import { useEffect, useState } from 'react';
-import { getHealth } from '../../services/api';
 import type { HealthResponse } from '../../types';
 import StatusDot from '../common/StatusDot';
 
 interface AppLayoutProps {
   uploadPanel: React.ReactNode;
   queryPanel: React.ReactNode;
+  health: HealthResponse | null;
+  connected: boolean;
 }
 
-export default function AppLayout({ uploadPanel, queryPanel }: AppLayoutProps): React.ReactElement {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [connected, setConnected] = useState(false);
-
-  async function fetchHealth(): Promise<void> {
-    try {
-      const data = await getHealth();
-      setHealth(data);
-      setConnected(true);
-    } catch {
-      setConnected(false);
-    }
-  }
-
-  useEffect(() => {
-    void fetchHealth();
-    const interval = setInterval(() => void fetchHealth(), 30_000);
-    return () => clearInterval(interval);
-  }, []);
+export default function AppLayout({ uploadPanel, queryPanel, health, connected }: AppLayoutProps): React.ReactElement {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'var(--color-gray-50)' }}>
@@ -88,15 +70,15 @@ export default function AppLayout({ uploadPanel, queryPanel }: AppLayoutProps): 
           overflow: 'hidden',
         }}
       >
-        {/* Left panel — 40% */}
+        {/* Left panel — fixed 260px sidebar */}
         <div
           style={{
-            width: '40%',
-            minWidth: 320,
+            width: 260,
+            flexShrink: 0,
             borderRight: '1px solid var(--color-gray-300)',
             overflowY: 'auto',
             backgroundColor: 'var(--color-white)',
-            padding: 24,
+            padding: '20px 16px',
           }}
         >
           {uploadPanel}

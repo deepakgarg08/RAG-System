@@ -1,11 +1,11 @@
 /**
- * FileUpload.tsx — Drag-and-drop contract upload zone.
- * Accepts PDF, JPG, JPEG, PNG. Delegates to the useFileUpload hook.
+ * FileUpload.tsx — Compact single-row upload trigger.
+ * Uses react-dropzone but styled as a small button bar rather than a large zone.
  */
 
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload } from 'lucide-react';
+import { UploadCloud } from 'lucide-react';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 interface FileUploadProps {
@@ -26,12 +26,10 @@ export default function FileUpload({ onUpload, isUploading }: FileUploadProps): 
     (acceptedFiles: File[], rejectedFiles: { file: File }[]) => {
       setTypeError(null);
       if (rejectedFiles.length > 0) {
-        setTypeError('Only PDF, JPG, and PNG contracts are supported.');
+        setTypeError('Only PDF, JPG, and PNG files are supported.');
         return;
       }
-      if (acceptedFiles.length > 0) {
-        void onUpload(acceptedFiles[0]);
-      }
+      if (acceptedFiles.length > 0) void onUpload(acceptedFiles[0]);
     },
     [onUpload],
   );
@@ -48,36 +46,30 @@ export default function FileUpload({ onUpload, isUploading }: FileUploadProps): 
       <div
         {...getRootProps()}
         style={{
-          border: `2px dashed ${isDragActive ? 'var(--color-blue)' : 'var(--color-gray-300)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 12px',
+          border: `1px dashed ${isDragActive ? 'var(--color-blue)' : 'var(--color-gray-300)'}`,
           borderRadius: 'var(--radius-md)',
-          padding: '32px 16px',
-          textAlign: 'center',
-          cursor: isUploading ? 'not-allowed' : 'pointer',
           backgroundColor: isDragActive ? '#e8f0fe' : 'var(--color-gray-50)',
+          cursor: isUploading ? 'not-allowed' : 'pointer',
           transition: 'border-color 0.15s, background-color 0.15s',
           opacity: isUploading ? 0.7 : 1,
         }}
       >
         <input {...getInputProps()} />
-        <div style={{ marginBottom: 10, color: 'var(--color-gray-600)' }}>
-          {isUploading ? (
-            <LoadingSpinner />
-          ) : (
-            <Upload size={28} color="var(--color-gray-600)" />
-          )}
-        </div>
-        <p style={{ margin: '0 0 4px', fontWeight: 600, fontSize: 14, color: 'var(--color-gray-900)' }}>
-          {isUploading ? 'Processing…' : isDragActive ? 'Drop to upload' : 'Drop contracts here or click to browse'}
-        </p>
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--color-gray-600)' }}>
-          PDF, JPG, PNG — one file at a time
-        </p>
+        {isUploading ? (
+          <LoadingSpinner />
+        ) : (
+          <UploadCloud size={16} color="var(--color-gray-600)" style={{ flexShrink: 0 }} />
+        )}
+        <span style={{ fontSize: 13, color: 'var(--color-gray-600)' }}>
+          {isUploading ? 'Processing…' : isDragActive ? 'Drop to upload' : 'Upload contract (PDF / JPG / PNG)'}
+        </span>
       </div>
-
       {typeError && (
-        <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--color-red)' }}>
-          {typeError}
-        </p>
+        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--color-red)' }}>{typeError}</p>
       )}
     </div>
   );
