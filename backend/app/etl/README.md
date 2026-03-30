@@ -57,3 +57,11 @@ Contract PDF uploaded (1 file, ~50KB)
 | `extractors/` | File format → raw text (PDF, JPEG/OCR, future: DOCX) |
 | `transformers/` | Raw text → clean, chunked, metadata-enriched documents |
 | `loaders/` | Chunked documents → vector store (ChromaDB demo / Azure AI Search prod) |
+
+## compliance_storage.py
+
+After every successful file upload, `store_contract_in_api()` sends a copy to an
+external compliance REST API for legally compliant archival. This step is:
+- **Fire-and-forget** — failure is logged but never blocks ingestion
+- **Optional** — skipped silently when `COMPLIANCE_API_URL` is not set in `.env`
+- **Fail-safe** — handles timeouts, HTTP errors, and unexpected exceptions

@@ -9,10 +9,14 @@ from typing import TypedDict, Annotated, AsyncGenerator
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
-from openai import AsyncOpenAI, AsyncAzureOpenAI
 
 from app.config import settings
 from app.rag.retriever import ContractRetriever
+from app.rag.llm_client import _get_llm_client, _get_model_name
+from app.rag.document_analyzer import (
+    build_missing_clause_context,
+    get_missing_clause_system_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,46 +24,11 @@ logger = logging.getLogger(__name__)
 # DEMO MODE: OpenAI API — direct API key, simple setup
 # PRODUCTION SWAP → Azure OpenAI (AWS: Bedrock):
 #   Set APP_ENV=production in .env — no code changes required.
-#   _get_llm_client() and _LLM_MODEL branch automatically.
+#   _get_llm_client() and _get_model_name() live in llm_client.py
+#   and branch automatically.
 #   Why Azure OpenAI: data never leaves Microsoft tenant,
 #   required for legal document compliance at Riverty
 # ============================================================
-
-
-def _get_llm_client() -> AsyncOpenAI | AsyncAzureOpenAI:
-    """Return the correct async LLM client based on APP_ENV.
-
-    Returns:
-        AsyncAzureOpenAI when APP_ENV=production (data stays in Azure tenant).
-        AsyncOpenAI otherwise (demo/development — direct OpenAI API).
-    """
-    if settings.app_env == "production":
-        # ============================================================
-        # PRODUCTION: Azure OpenAI
-        # AWS equivalent: Amazon Bedrock
-        # Set APP_ENV=production in .env to activate
-        # ============================================================
-        return AsyncAzureOpenAI(
-            api_key=settings.azure_openai_api_key,
-            azure_endpoint=settings.azure_openai_endpoint,
-            api_version=settings.azure_openai_api_version,
-        )
-    # ============================================================
-    # DEMO: Plain OpenAI API
-    # Switch to production: set APP_ENV=production in .env
-    # ============================================================
-    return AsyncOpenAI(api_key=settings.openai_api_key)
-
-
-def _get_model_name() -> str:
-    """Return the deployment/model name for the active environment.
-
-    Returns:
-        Azure deployment name in production, 'gpt-4o' in demo.
-    """
-    if settings.app_env == "production":
-        return settings.azure_openai_deployment_name
-    return "gpt-4o"
 
 _ROUTER_PROMPT = """\
 Classify this legal contract query into exactly one category:
@@ -227,6 +196,12 @@ async def reasoner(state: AgentState) -> dict:
 
     Only uses retrieved contract excerpts — never invents information.
 
+    For MODE 3 queries (find_missing): chunks are grouped by source document
+    so the LLM can reason across all contracts and identify which ones contain
+    or lack the requested clause.
+
+    For all other query types: standard chunk-level context is used.
+
     Args:
         state: Current agent state with question and retrieved_chunks.
 
@@ -237,14 +212,24 @@ async def reasoner(state: AgentState) -> dict:
     if state.get("answer"):
         return {}
 
-    context = _build_context(state["retrieved_chunks"])
     client = _get_llm_client()
+    query_type = state.get("query_type", "")
+
+    # MODE 3 — find_missing: group chunks by document for cross-DB clause analysis
+    if query_type == "find_missing":
+        grouped_context = build_missing_clause_context(state["retrieved_chunks"])
+        system_content = get_missing_clause_system_prompt(grouped_context)
+        logger.info("reasoner: using document-level grouping for find_missing query")
+    else:
+        context = _build_context(state["retrieved_chunks"])
+        system_content = _REASONER_SYSTEM.format(context=context)
+
     response = await client.chat.completions.create(
         model=_get_model_name(),
         messages=[
             {
                 "role": "system",
-                "content": _REASONER_SYSTEM.format(context=context),
+                "content": system_content,
             },
             {
                 "role": "user",

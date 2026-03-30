@@ -8,6 +8,7 @@ import time
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from app.etl.compliance_storage import store_contract_in_api
 from app.etl.pipeline import IngestionPipeline, ModelMismatchError
 from app.models import IngestResponse
 from app.storage.local_storage import LocalStorage
@@ -60,6 +61,11 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
     storage = LocalStorage()
     saved_path = storage.save(file_bytes, filename)
     logger.info("ingest_document: saved to '%s'", saved_path)
+
+    # --- Compliance archival (fire-and-forget) ---
+    # Sends a copy to the external compliance storage API if configured.
+    # Failure is logged but NEVER blocks ingestion.
+    store_contract_in_api(filename, file_bytes)
 
     # --- Run ETL pipeline ---
     # ModelMismatchError is raised at construction time if the registry was

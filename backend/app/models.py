@@ -45,3 +45,16 @@ class HealthResponse(BaseModel):
     document_count: int
     mode: str       # "demo" or "production"
     app_env: str
+
+
+class ComplianceResult(BaseModel):
+    """Response returned by the POST /api/compliance endpoint.
+
+    compliant:  True if no violations were found.
+    violations: List of specific guideline violations identified.
+    explanation: 2-4 sentence plain-language explanation of the assessment.
+    """
+
+    compliant: bool
+    violations: list[str]
+    explanation: str

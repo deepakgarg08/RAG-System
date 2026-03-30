@@ -77,7 +77,7 @@ def mock_openai_chat(monkeypatch):
         return_value=fake_response
     )
 
-    with patch("app.rag.agent.AsyncOpenAI", return_value=mock_client):
+    with patch("app.rag.llm_client.AsyncOpenAI", return_value=mock_client):
         yield mock_client
 
 

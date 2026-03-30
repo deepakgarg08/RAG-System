@@ -4,9 +4,22 @@
 
 | File | Method | Path | Accepts | Returns |
 |---|---|---|---|---|
-| `ingest.py` | POST | `/api/ingest` | multipart file upload | `{filename, chunks, status}` |
-| `query.py` | POST | `/api/query` | `{question: str}` | Server-Sent Events stream |
 | `health.py` | GET | `/health` | — | `{status, document_count, mode}` |
+| `ingest.py` | POST | `/api/ingest` | multipart file upload | `{filename, chunks, status}` |
+| `query.py` | POST | `/api/query` | `{question: str}` | SSE stream (MODE 3 cross-DB) |
+| `files.py` | GET | `/api/files/{filename}` | — | FileResponse (PDF/image) |
+| `suggestions.py` | GET | `/api/suggested-questions` | — | `{questions: list[str]}` |
+| `analyze.py` | POST | `/api/analyze` | file + question + mode | SSE stream (MODE 1/2 temp docs) |
+| `compliance.py` | POST | `/api/compliance` | file + guidelines? | `{compliant, violations, explanation}` |
+
+## Three Analysis Modes
+
+| Mode | Endpoint | Description | DB access |
+|---|---|---|---|
+| MODE 1 (single) | `POST /api/analyze?mode=single` | Q&A on uploaded doc only | None — doc never indexed |
+| MODE 1 (compliance) | `POST /api/compliance` | Evaluate doc against guidelines | None — doc never indexed |
+| MODE 2 (compare) | `POST /api/analyze?mode=compare` | Compare uploaded doc vs DB | Read-only (retrieval only) |
+| MODE 3 (cross-DB) | `POST /api/query` | Query across all stored contracts | Read (grouped by document) |
 
 ## Why Server-Sent Events (SSE) for query.py?
 

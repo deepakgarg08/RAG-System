@@ -360,7 +360,7 @@ class TestLangGraphAgent:
             "sources": [],
         }
 
-        with patch("app.rag.agent.AsyncOpenAI", return_value=mock_client):
+        with patch("app.rag.llm_client.AsyncOpenAI", return_value=mock_client):
             result = await query_router(state)
 
         assert result["query_type"] == "find_missing"
@@ -386,7 +386,7 @@ class TestLangGraphAgent:
             "sources": [],
         }
 
-        with patch("app.rag.agent.AsyncOpenAI", return_value=mock_client):
+        with patch("app.rag.llm_client.AsyncOpenAI", return_value=mock_client):
             result = await query_router(state)
 
         assert result["query_type"] == "find_clause"

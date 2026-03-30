@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     azure_doc_intelligence_endpoint: str = Field(default="", alias="AZURE_DOC_INTELLIGENCE_ENDPOINT")
     azure_doc_intelligence_key: str = Field(default="", alias="AZURE_DOC_INTELLIGENCE_KEY")
 
+    # --- External Compliance Storage API (optional) ---
+    # When set, every ingested file is sent here for legally compliant archival.
+    # If the call fails, ingestion continues — this step is fire-and-forget.
+    compliance_api_url: str = Field(default="", alias="COMPLIANCE_API_URL")
+
     model_config = {"env_file": ".env", "populate_by_name": True}
 
 

@@ -7,20 +7,32 @@ references. It never invents information not present in the contracts.
 ## Components
 
 ### `embeddings.py`
-Converts text strings to vectors using **OpenAI text-embedding-3-large** (3072 dimensions).
+Converts text strings to vectors using **BAAI/bge-m3** locally (1024 dimensions, demo)
+or **Azure OpenAI text-embedding-3-large** (3072 dimensions, production).
 Used both at ingest time (to embed chunks) and query time (to embed the question).
-Uses the larger model for better paraphrase/synonym matching — critical when users phrase
-queries differently from the document text (e.g. "favourite color" vs "preferred color").
 
 ### `retriever.py`
 Queries ChromaDB for the top-8 most semantically similar chunks to the embedded question.
 Returns chunks with full metadata including `page_number`, `chunk_index`, `total_chunks`,
-and `similarity_score`. Minimum similarity threshold: `0.15` (lowered from `0.30` to
-prevent silently dropping relevant chunks with paraphrased queries).
+and `similarity_score`. Minimum similarity threshold: `0.40`.
 Top-K is configurable via `TOP_K_RESULTS` in config.
 
 ### `agent.py`
 LangGraph agent with 4 nodes that process a query as a state machine.
+For `find_missing` queries (MODE 3), the reasoner branches to use document-level
+grouped context so the LLM can identify which contracts contain or lack a clause.
+
+### `document_grouper.py`
+Groups a flat list of retriever chunks by `source_file`. Used by:
+- `agent.py` for MODE 3 (find_missing cross-DB queries)
+- `document_analyzer.py` for MODE 2 (compare uploaded doc with DB)
+
+### `document_analyzer.py`
+Temporary document analysis — uploaded files are processed in-memory and never
+stored in the vector database. Provides:
+- `analyze_single_document()` — MODE 1: Q&A on the uploaded doc only
+- `check_compliance()` — MODE 1 variant: evaluate against guidelines
+- `compare_with_database()` — MODE 2: compare uploaded doc vs DB contracts
 
 ## Why LangGraph Over Plain LangChain?
 
