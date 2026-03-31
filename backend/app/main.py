@@ -17,6 +17,7 @@ from app.api.routes.files import router as files_router
 from app.api.routes.suggestions import router as suggestions_router
 from app.api.routes.analyze import router as analyze_router
 from app.api.routes.compliance import router as compliance_router
+from app.api.routes.eval_retrieve import router as eval_retrieve_router
 from app.rag.embeddings import _get_local_model, _get_service
 logger = logging.getLogger(__name__)
 
@@ -88,3 +89,4 @@ app.include_router(files_router, prefix="/api")           # GET  /api/files/{fil
 app.include_router(suggestions_router, prefix="/api")     # GET  /api/suggested-questions
 app.include_router(analyze_router, prefix="/api")         # POST /api/analyze
 app.include_router(compliance_router, prefix="/api")      # POST /api/compliance
+app.include_router(eval_retrieve_router, prefix="/api")   # POST /api/eval/retrieve

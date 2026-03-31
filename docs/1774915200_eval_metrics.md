@@ -2,22 +2,37 @@
 
 **Created:** 2026-03-31  
 **Feature branch:** `betterment`  
+**Ground-truth version:** 3.0  
 **Scope:** Minimum-viable offline evaluation harness (no RAGAS dependency)
 
 ---
 
 ## What Was Built
 
-A lightweight evaluation harness at `backend/tests/eval/` that:
+A lightweight evaluation harness at `backend/tests/eval/` covering all three operational
+modes of the RAG system.
 
-1. **Builds a ground-truth dataset** (`ground_truth.json`) — 4 synthetic contracts × 10 questions with known-correct answers.
-2. **Ingests contracts via the live API** — converts `.txt` samples to PDFs (same `fitz` pattern as `conftest.py`) and POSTs to `/api/ingest`.
-3. **Runs each question through `/api/query`** — consumes the SSE stream and collects the full answer.
-4. **Checks three metrics per question:**
-   - `contract_hit` — did the answer name the expected source contract?
-   - `clause_hit` — did the answer contain the expected clause keywords?
-   - `latency_s` — wall-clock seconds from request to last token.
-5. **Saves a timestamped results file** — `eval_results_{unix_timestamp}.json` in `tests/eval/`.
+### Three operational modes
+
+| Mode | API endpoint | Scenario |
+|------|-------------|---------|
+| Mode 1 — Single-doc | `POST /api/analyze?mode=single` | Upload a temp contract, ask questions directly about it |
+| Mode 2 — DB query | `POST /api/query` | Ask questions against the persistent vector DB |
+| Mode 3 — Compare | `POST /api/analyze?mode=compare` | Upload a temp contract, compare it against the DB |
+
+### Metrics per mode
+
+| Metric | Mode 1 | Mode 2 | Mode 3 |
+|--------|:------:|:------:|:------:|
+| `clause_hit` — answer contains expected keywords | ✓ | ✓ | ✓ |
+| `contract_hit` — answer names the correct source contract | — | ✓ | — |
+| `absent_keywords_ok` — forbidden phrases absent from answer | ✓ | — | — |
+| `comparison_hit` — comparison point mentioned | — | — | ✓ |
+| `Precision@K` — fraction of retrieved chunks that are relevant | — | ✓ | — |
+| `Recall@K` — fraction of relevant chunks that were retrieved | — | ✓ | — |
+| `MRR` — Mean Reciprocal Rank of first relevant chunk | — | ✓ | — |
+| `faithfulness` — LLM-as-judge, 0.0–1.0 | ✓ | ✓ | ✓ |
+| `latency_s` — wall-clock seconds per query | ✓ | ✓ | ✓ |
 
 ---
 
@@ -25,58 +40,71 @@ A lightweight evaluation harness at `backend/tests/eval/` that:
 
 | File | Purpose |
 |------|---------|
-| `backend/tests/eval/ground_truth.json` | Dataset — 4 contracts + 10 Q&A pairs with expected contract names and keyword oracles |
-| `backend/tests/eval/run_eval.py` | Evaluation script — ingest → query → score → report |
-| `backend/tests/eval/eval_results_*.json` | Output — one file per run (gitignored) |
+| `backend/tests/eval/ground_truth.json` | v3.0 dataset — 4 persistent contracts, 2 temp contracts, 10 Mode-2 Qs, 5 Mode-1 Qs, 4 Mode-3 Qs |
+| `backend/tests/eval/run_eval.py` | Evaluation harness — ingest → eval all modes → report |
+| `backend/app/api/routes/eval_retrieve.py` | `POST /api/eval/retrieve` — returns raw retrieved chunks for IR metric computation |
+| `backend/tests/eval/eval_results_*.json` | Output — one timestamped file per run (gitignored) |
 
 ---
 
-## Ground-Truth Dataset
+## Ground-Truth Dataset (v3.0)
 
-### Contracts
+### Persistent contracts (DB)
 
-| Filename | Type | Language | Has GDPR | Has Termination |
-|----------|------|----------|----------|----------------|
-| `contract_nda_techcorp_2023.pdf` | NDA | EN | Yes | Yes (30 days) |
-| `contract_service_datasystems_2022.pdf` | Service Agreement | EN | No | Yes (Net 30) |
-| `contract_vendor_2023_no_termination.pdf` | Vendor Agreement | EN | Yes | **No** |
-| `vertrag_dienstleistung_mueller_2024.pdf` | Dienstleistungsvertrag | DE | Yes | Yes (3 months) |
+| Filename | GDPR | Termination | Liability |
+|----------|:----:|:-----------:|:---------:|
+| `contract_gdpr_strict.pdf` | Full (EU 2016/679) | Either party, 15 days notice | Capped at 12 months fees |
+| `contract_missing_gdpr.pdf` | **Absent** (DATA USAGE only) | Weak — provider discretion only | Capped at 12 months fees |
+| `contract_unlimited_liability.pdf` | Full (EU 2016/679) | Either party, 15 days notice | **Unlimited** (direct + indirect + consequential) |
+| `contract_weak_termination.pdf` | Full (EU 2016/679) | **Weak** — provider discretion only | Capped at 12 months fees |
 
-### Questions
+All four contracts have Germany as governing law.
 
-| ID | Question | Tests |
-|----|----------|-------|
-| Q01 | Governing law in TechCorp NDA? | Clause extraction |
-| Q02 | Monthly fee in DataSystems agreement? | Numeric fact extraction |
-| Q03 | Which contracts lack a termination clause? | `find_missing` query type |
-| Q04 | Days notice to terminate TechCorp NDA? | Specific numeric value |
-| Q05 | Which contract is in German? | Language-aware retrieval |
-| Q06 | Does TechCorp NDA have GDPR clause? | Clause existence detection |
-| Q07 | Invoice payment period in DataSystems agreement? | Payment term extraction |
-| Q08 | Does CloudVendor agreement include GDPR obligations? | Clause presence |
-| Q09 | What services does Müller Consulting provide? | German-language extraction |
-| Q10 | Max annual price increase in CloudVendor agreement? | Pricing cap extraction |
+### Temp contracts (uploaded for Mode 1 / Mode 3)
+
+| Filename | Profile | Most similar DB contract |
+|----------|---------|------------------------|
+| `temp_contract_1.pdf` | no GDPR + weak termination + unlimited liability | `contract_missing_gdpr` (pages 1+2) + `contract_unlimited_liability` (page 3) |
+| `temp_contract_2.pdf` | full GDPR + fair termination + capped liability | `contract_gdpr_strict` (all pages) |
 
 ---
 
 ## Metrics Explained
 
-### Per-Question Metrics
+### Binary hit metrics
 
-| Metric | Type | Pass condition |
-|--------|------|---------------|
-| `contract_hit` | bool | Response text contains the expected contract filename stem (case-insensitive, partial-match on meaningful tokens) |
-| `clause_hit` | bool | Response text contains at least one expected keyword phrase |
-| `latency_s` | float | Wall-clock seconds — measured from `requests.post()` to last SSE token |
+| Metric | Pass condition |
+|--------|---------------|
+| `contract_hit` | Response contains the expected contract filename stem (or any token > 3 chars from it) |
+| `clause_hit` | Response contains at least one expected keyword phrase (case-insensitive) |
+| `absent_keywords_ok` | None of the forbidden phrases appear in the response |
+| `comparison_hit` | At least one expected comparison point is present in the response |
 
-### Aggregate Summary
+### IR metrics (Mode 2 only)
+
+Computed from `/api/eval/retrieve` — the same retrieval pipeline (HybridRetriever → CrossEncoder reranker → MMR) as the query agent, but returning raw chunks instead of an LLM answer.
+
+Relevance labels are defined at `(source_file, page_number)` granularity. Each contract page contains exactly one clause, so page = chunk in this dataset.
 
 | Metric | Formula |
 |--------|---------|
-| `contract_hit_rate` | `contract_hit_count / total_questions` |
-| `clause_accuracy` | `clause_hit_count / total_questions` |
-| `avg_latency_s` | Mean across all successful queries |
-| `p95_latency_s` | 95th-percentile latency |
+| **Precision@K** | `(relevant chunks in top-K) / K` |
+| **Recall@K** | `(relevant chunks in top-K) / (total relevant chunks)` |
+| **MRR** | `1 / rank_of_first_relevant_chunk` (0 if none in top-K) |
+
+### Faithfulness (LLM-as-judge)
+
+Implemented without RAGAS. Uses a direct OpenAI GPT-4o-mini call with a 0–10 scale prompt:
+
+- **Mode 2**: context = retrieved chunks from `/api/eval/retrieve`
+- **Mode 1**: context = full extracted document text (PDF parsed locally)
+- **Mode 3**: context = DB chunks retrieved for the same question
+
+Score is normalised to 0.0–1.0. Requires `OPENAI_API_KEY` to be set; if absent, faithfulness is skipped and reported as `n/a`.
+
+### Latency
+
+Wall-clock seconds from `requests.post()` call to last SSE `[DONE]` token, measured with `time.perf_counter()`. Includes network round-trip + LLM generation time.
 
 ---
 
@@ -90,52 +118,80 @@ A lightweight evaluation harness at `backend/tests/eval/` that:
    uvicorn app.main:app --reload
    ```
 
-2. Ensure your `.env` has a valid `OPENAI_API_KEY`.
+2. Set environment variables:
+   ```bash
+   export OPENAI_API_KEY=sk-...   # required for faithfulness judging
+   ```
 
-### Run Full Evaluation (ingest + query)
+3. Ingest persistent contracts (first run only) — or use `--skip-ingest` if already loaded.
+
+### Run all three modes
 
 ```bash
 cd backend
 python tests/eval/run_eval.py
 ```
 
-### Skip Ingest (contracts already loaded)
+### Skip ingest (contracts already in the DB)
 
 ```bash
 python tests/eval/run_eval.py --skip-ingest
 ```
 
-### Custom API URL
+### Run specific modes only
 
 ```bash
-python tests/eval/run_eval.py --base-url http://my-staging-server:8000
+# Mode 2 only (DB query)
+python tests/eval/run_eval.py --skip-ingest --modes 2
+
+# Modes 1 and 3 (needs no persistent DB state, but server must be running)
+python tests/eval/run_eval.py --skip-ingest --modes 1,3
 ```
 
-Or via environment variable:
+### Custom API URL or top-K
+
 ```bash
+python tests/eval/run_eval.py --base-url http://staging:8000 --top-k 10
+# or via env var
 BASE_URL=http://staging:8000 python tests/eval/run_eval.py
 ```
 
-### Output
-
-The script prints a live table during execution:
+### Sample output
 
 ```
-ID     Contract Hit    Clause Hit   Latency  Question
-----------------------------------------------------------------------
-Q01    PASS            PASS            3.41s  What is the governing law in the NDA...
-Q02    PASS            PASS            2.87s  What is the monthly service fee in th...
-Q03    PASS            FAIL            4.12s  Which contracts are missing a terminat...
+Mode 2 — Database queries (10 questions)
+ID      C-Hit   Kw-Hit   P@K     R@K     MRR     Faith   Lat      Question
+----------------------------------------------------------------------------------------------------
+M2Q01   PASS    PASS     0.13    1.00    1.00    0.90    3.41s    Which contract is missing a GDPR...
+M2Q02   PASS    PASS     0.13    1.00    1.00    0.88    2.87s    Which contract has unlimited liab...
 ...
 
 ================================================================================
-[3/3] Summary
+EVALUATION SUMMARY
 ================================================================================
-  Contract Hit Rate : 90.0%  (9/10)
-  Clause Accuracy   : 80.0%  (8/10)
-  Avg Latency       : 3.52s
-  P95 Latency       : 5.10s
-  Errors            : 0
+
+Mode 2 — Database Query (10 questions)
+  Contract Hit Rate  : 90.0%
+  Clause Hit Rate    : 80.0%
+  Mean Precision@K   : 0.131
+  Mean Recall@K      : 0.900
+  Mean MRR           : 0.875
+  Mean Faithfulness  : 0.87
+  Avg Latency        : 3.52s
+  P95 Latency        : 5.10s
+  Errors             : 0
+
+Mode 1 — Single-Doc Analysis (5 questions)
+  Clause Hit Rate    : 100.0%
+  Absent KW Pass     : 100.0%
+  Mean Faithfulness  : 0.91
+  Avg Latency        : 4.20s
+
+Mode 3 — Compare Uploaded vs DB (4 questions)
+  Keyword Hit Rate   : 75.0%
+  Comparison Hit Rate: 100.0%
+  Mean Faithfulness  : 0.85
+  Avg Latency        : 5.80s
 ================================================================================
 
 Results saved → tests/eval/eval_results_1774915200.json
@@ -143,43 +199,64 @@ Results saved → tests/eval/eval_results_1774915200.json
 
 ---
 
-## Design Decisions
+## Architecture
+
+### Eval retrieve endpoint
+
+`POST /api/eval/retrieve` is a non-production endpoint registered in `main.py`. It runs the identical retrieval pipeline as the LangGraph agent — HybridRetriever (BM25 + dense, RRF merge) → CrossEncoder reranker → MMR filter — and returns the raw chunks. This lets IR metrics be computed against the real retrieval logic, not a simplified version.
 
 ### Why not RAGAS?
 
-RAGAS requires LLM calls for faithfulness/answer-relevance scoring — it costs money, adds latency, and introduces non-determinism. For a demo/interview context, deterministic string-matching oracles (contract names + clause keywords) are faster, cheaper, and easier to inspect.
+RAGAS requires its own LLM pipeline and external dependencies. For this demo:
+- Binary hit metrics are deterministic, cheap, and easy to inspect
+- Faithfulness is covered by a direct 8-line GPT-4o-mini call with a controlled prompt
+- IR metrics give retrieval signal independent of LLM generation quality
 
-### Why binary hits instead of fuzzy scores?
+### Why SSE consumption end-to-end?
 
-The ground-truth questions have unambiguous answers (specific contract names, numeric values, clause titles). Binary pass/fail makes it easy to see regressions at a glance. Fuzzy semantic similarity can be added later via embedding cosine distance if needed.
-
-### Why SSE consumption instead of a separate non-streaming endpoint?
-
-The evaluation reuses the real production code path end-to-end. Adding a batch endpoint just for eval would mean testing different code. The SSE parser in `run_eval.py` is 8 lines and mirrors the frontend pattern exactly.
+The evaluation reuses the exact same code path as the frontend — SSE streaming from `/api/query` and `/api/analyze`. This means the eval tests the production path, not a synthetic shortcut.
 
 ---
 
-## Adding More Questions
+## Extending the Dataset
 
-Edit `ground_truth.json`:
+### Add a Mode 2 question
 
 ```json
 {
-  "id": "Q11",
-  "question": "Your question here?",
-  "expected_contracts": ["contract_filename_stem"],
+  "id": "M2Q11",
+  "question": "Your question about the DB contracts?",
+  "expected_contracts": ["contract_gdpr_strict"],
   "expected_keywords": ["keyword1", "keyword2"],
-  "description": "What this question tests"
+  "relevant_chunks": [
+    {"source_file": "contract_gdpr_strict.pdf", "pages": [1]}
+  ],
+  "description": "What this tests"
 }
 ```
 
-No code changes needed — `run_eval.py` reads the JSON dynamically.
+### Add a Mode 1 question
 
----
+```json
+{
+  "id": "M1Q06",
+  "upload_file": "temp_contract_1.pdf",
+  "question": "Does this contract specify a governing law?",
+  "expected_keywords": ["germany", "german"],
+  "expected_absent_keywords": ["france", "uk"],
+  "description": "Governing law check on temp_contract_1"
+}
+```
 
-## Adding More Sample Contracts
+### Add a Mode 3 question
 
-1. Add `.txt` file to `backend/tests/sample_contracts/`
-2. Add an entry to `ground_truth.json` under `"contracts"`
-3. Add question entries that reference the new contract filename stem
-4. Update `backend/tests/sample_contracts/README.md`
+```json
+{
+  "id": "M3Q05",
+  "upload_file": "temp_contract_2.pdf",
+  "question": "How does the governing law clause compare to the database?",
+  "expected_keywords": ["germany", "similar", "all"],
+  "expected_comparison_points": ["same governing law as all DB contracts"],
+  "description": "All contracts share Germany governing law"
+}
+```
