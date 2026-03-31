@@ -73,6 +73,27 @@ GROUND_TRUTH_PATH = EVAL_DIR / "ground_truth.json"
 PERSISTENT_CONTRACTS_DIR = BACKEND_DIR / "uploads" / "synthetic_legal_db" / "persistent_contracts"
 TEMP_CONTRACTS_DIR = BACKEND_DIR / "data" / "synthetic_legal_db" / "temp_uploads"
 
+# Ensure the co-located metrics package is importable when running as a script
+if str(EVAL_DIR) not in sys.path:
+    sys.path.insert(0, str(EVAL_DIR))
+
+# ---------------------------------------------------------------------------
+# Extended metrics (new — pluggable metric modules)
+# ---------------------------------------------------------------------------
+from metrics.answer_metrics import (  # noqa: E402
+    score_answer_relevance,
+    score_completeness,
+    score_hallucination_rate,
+)
+from metrics.context_metrics import score_context_precision, score_context_recall  # noqa: E402
+from metrics.attribution_metrics import score_citation_accuracy, score_citation_coverage  # noqa: E402
+from metrics.cost_metrics import aggregate_session_cost, estimate_query_cost  # noqa: E402
+from metrics.robustness_metrics import (  # noqa: E402
+    generate_paraphrases,
+    inject_noise_chunks,
+    score_noise_sensitivity,
+    score_query_consistency,
+)
 
 # ---------------------------------------------------------------------------
 # API helpers
@@ -603,6 +624,7 @@ def run_mode2_eval(
         # --- Faithfulness (LLM judge if OpenAI available, else local bge-m3 cosine) ---
         faith: float = -1.0
         faith_src: str = "error"
+        retrieved_for_faith: list[dict] = []  # captured for reuse by extended metrics
         try:
             retrieved_for_faith = eval_retrieve(base_url, question, top_k)
             context = "\n\n".join(c.get("text", "") for c in retrieved_for_faith)
@@ -611,6 +633,47 @@ def run_mode2_eval(
             logger.warning("Faithfulness failed for %s: %s", qid, exc)
         row["faithfulness"] = faith
         row["faithfulness_source"] = faith_src
+
+        # --- Extended metrics ---
+        # Answer Relevance (LLM or embedding fallback)
+        ans_rel, ans_rel_src = score_answer_relevance(question, answer, openai_client, _embed_texts)
+        row["answer_relevance"] = ans_rel
+        row["answer_relevance_source"] = ans_rel_src
+
+        # Completeness — continuous keyword-coverage ratio (deterministic)
+        row["completeness"] = score_completeness(answer, expected_keywords)
+
+        # Hallucination Rate — derived from faithfulness, no extra LLM call
+        row["hallucination_rate"] = score_hallucination_rate(faith)
+
+        # Context Precision & Recall (GT labels for precision when available)
+        if retrieved_for_faith:
+            relevant_set_gt: set[tuple[str, int]] = set()
+            for rc in relevant_chunks_gt:
+                for pg in rc.get("pages", []):
+                    relevant_set_gt.add((rc["source_file"], int(pg)))
+            ctx_prec, ctx_prec_src = score_context_precision(
+                question, retrieved_for_faith, openai_client,
+                relevant_set=relevant_set_gt if relevant_set_gt else None,
+            )
+            ctx_rec, ctx_rec_src = score_context_recall(question, retrieved_for_faith, openai_client)
+            row["context_precision"] = ctx_prec
+            row["context_precision_source"] = ctx_prec_src
+            row["context_recall"] = ctx_rec
+            row["context_recall_source"] = ctx_rec_src
+
+            # Attribution metrics (heuristic, deterministic)
+            row["citation_accuracy"] = score_citation_accuracy(answer, retrieved_for_faith)
+            row["citation_coverage"] = score_citation_coverage(answer, retrieved_for_faith)
+        else:
+            row.update({
+                "context_precision": -1.0, "context_precision_source": "error",
+                "context_recall": -1.0, "context_recall_source": "error",
+                "citation_accuracy": -1.0, "citation_coverage": -1.0,
+            })
+
+        # Cost estimate for this query (question + answer tokens)
+        row["cost_estimate"] = estimate_query_cost(question, answer)
 
         # --- Print row ---
         p_str = f"{ir['precision_at_k']:.2f}" if ir["precision_at_k"] >= 0 else "n/a"
@@ -714,6 +777,20 @@ def run_mode1_eval(
         row["faithfulness"] = faith
         row["faithfulness_source"] = faith_src
 
+        # --- Extended metrics ---
+        ans_rel, ans_rel_src = score_answer_relevance(question, answer, openai_client, _embed_texts)
+        row["answer_relevance"] = ans_rel
+        row["answer_relevance_source"] = ans_rel_src
+        row["completeness"] = score_completeness(answer, expected_keywords)
+        row["hallucination_rate"] = score_hallucination_rate(faith)
+        # No DB-retrieved chunks in Mode 1 — context/attribution metrics not applicable
+        row.update({
+            "context_precision": -1.0, "context_precision_source": "n/a",
+            "context_recall": -1.0, "context_recall_source": "n/a",
+            "citation_accuracy": -1.0, "citation_coverage": -1.0,
+        })
+        row["cost_estimate"] = estimate_query_cost(question, answer)
+
         f_str = f"{faith:.2f}[{faith_src}]" if faith >= 0 else "n/a"
         print(
             f"{qid:<7} {'PASS' if clause_hit else 'FAIL':<8} "
@@ -800,14 +877,42 @@ def run_mode3_eval(
         # --- Faithfulness: DB retrieval context (LLM or local embeddings) ---
         faith: float = -1.0
         faith_src: str = "error"
+        retrieved_m3: list[dict] = []  # captured for reuse by extended metrics
         try:
-            retrieved = eval_retrieve(base_url, question, top_k=8)
-            context = "\n\n".join(c.get("text", "") for c in retrieved)
+            retrieved_m3 = eval_retrieve(base_url, question, top_k=8)
+            context = "\n\n".join(c.get("text", "") for c in retrieved_m3)
             faith, faith_src = judge_faithfulness(context, answer, openai_client)
         except Exception as exc:
             logger.warning("Faithfulness failed for %s: %s", qid, exc)
         row["faithfulness"] = faith
         row["faithfulness_source"] = faith_src
+
+        # --- Extended metrics ---
+        ans_rel, ans_rel_src = score_answer_relevance(question, answer, openai_client, _embed_texts)
+        row["answer_relevance"] = ans_rel
+        row["answer_relevance_source"] = ans_rel_src
+        row["completeness"] = score_completeness(answer, expected_keywords)
+        row["hallucination_rate"] = score_hallucination_rate(faith)
+
+        if retrieved_m3:
+            ctx_prec, ctx_prec_src = score_context_precision(
+                question, retrieved_m3, openai_client, relevant_set=None
+            )
+            ctx_rec, ctx_rec_src = score_context_recall(question, retrieved_m3, openai_client)
+            row["context_precision"] = ctx_prec
+            row["context_precision_source"] = ctx_prec_src
+            row["context_recall"] = ctx_rec
+            row["context_recall_source"] = ctx_rec_src
+            row["citation_accuracy"] = score_citation_accuracy(answer, retrieved_m3)
+            row["citation_coverage"] = score_citation_coverage(answer, retrieved_m3)
+        else:
+            row.update({
+                "context_precision": -1.0, "context_precision_source": "error",
+                "context_recall": -1.0, "context_recall_source": "error",
+                "citation_accuracy": -1.0, "citation_coverage": -1.0,
+            })
+
+        row["cost_estimate"] = estimate_query_cost(question, answer)
 
         f_str = f"{faith:.2f}[{faith_src}]" if faith >= 0 else "n/a"
         print(
@@ -846,6 +951,11 @@ def build_summary(
     Returns:
         Summary dict with per-mode and overall metrics.
     """
+    def _cost_summary(results: list[dict]) -> dict:
+        """Aggregate cost_estimate dicts across all results."""
+        costs = [r["cost_estimate"] for r in results if isinstance(r.get("cost_estimate"), dict)]
+        return aggregate_session_cost(costs)
+
     def _mode2_summary(results: list[dict]) -> dict:
         ok = [r for r in results if "error" not in r]
         n = len(ok)
@@ -856,14 +966,33 @@ def build_summary(
         p95_idx = max(0, int(len(lats_s) * 0.95) - 1)
         return {
             "total": n,
+            # Existing binary hit metrics
             "contract_hit_rate": round(sum(1 for r in ok if r.get("contract_hit")) / n, 3),
             "clause_hit_rate": round(sum(1 for r in ok if r.get("clause_hit")) / n, 3),
+            # Existing IR metrics
             "mean_precision_at_k": _safe_mean([r.get("precision_at_k", -1.0) for r in ok]),
             "mean_recall_at_k": _safe_mean([r.get("recall_at_k", -1.0) for r in ok]),
             "mean_mrr": _safe_mean([r.get("mrr", -1.0) for r in ok]),
+            # Existing faithfulness
             "mean_faithfulness": _safe_mean([r.get("faithfulness", -1.0) for r in ok]),
+            # New: answer-level metrics
+            "mean_answer_relevance": _safe_mean([r.get("answer_relevance", -1.0) for r in ok]),
+            "mean_completeness": _safe_mean([r.get("completeness", -1.0) for r in ok]),
+            "mean_hallucination_rate": _safe_mean([r.get("hallucination_rate", -1.0) for r in ok]),
+            # New: context-level metrics
+            "mean_context_precision": _safe_mean([r.get("context_precision", -1.0) for r in ok]),
+            "mean_context_recall": _safe_mean([r.get("context_recall", -1.0) for r in ok]),
+            # New: attribution metrics
+            "mean_citation_accuracy": _safe_mean([r.get("citation_accuracy", -1.0) for r in ok]),
+            "mean_citation_coverage": _safe_mean([r.get("citation_coverage", -1.0) for r in ok]),
+            # New: robustness (populated by run_robustness_eval if --robustness flag set)
+            "mean_query_consistency": _safe_mean([r.get("query_consistency", -1.0) for r in ok]),
+            "mean_noise_sensitivity": _safe_mean([r.get("noise_sensitivity", -1.0) for r in ok]),
+            # Latency
             "avg_latency_s": round(sum(lats) / len(lats), 3) if lats else 0.0,
             "p95_latency_s": lats_s[p95_idx] if lats_s else 0.0,
+            # New: cost
+            "cost": _cost_summary(ok),
             "errors": len(results) - n,
         }
 
@@ -880,8 +1009,13 @@ def build_summary(
             "clause_hit_rate": round(sum(1 for r in ok if r.get("clause_hit")) / n, 3),
             "absent_keyword_pass_rate": round(sum(1 for r in ok if r.get("absent_keywords_ok", True)) / n, 3),
             "mean_faithfulness": _safe_mean([r.get("faithfulness", -1.0) for r in ok]),
+            # New: answer-level metrics
+            "mean_answer_relevance": _safe_mean([r.get("answer_relevance", -1.0) for r in ok]),
+            "mean_completeness": _safe_mean([r.get("completeness", -1.0) for r in ok]),
+            "mean_hallucination_rate": _safe_mean([r.get("hallucination_rate", -1.0) for r in ok]),
             "avg_latency_s": round(sum(lats) / len(lats), 3) if lats else 0.0,
             "p95_latency_s": lats_s[p95_idx] if lats_s else 0.0,
+            "cost": _cost_summary(ok),
             "errors": len(results) - n,
         }
 
@@ -898,8 +1032,18 @@ def build_summary(
             "keyword_hit_rate": round(sum(1 for r in ok if r.get("keyword_hit")) / n, 3),
             "comparison_hit_rate": round(sum(1 for r in ok if r.get("comparison_hit")) / n, 3),
             "mean_faithfulness": _safe_mean([r.get("faithfulness", -1.0) for r in ok]),
+            # New: answer-level metrics
+            "mean_answer_relevance": _safe_mean([r.get("answer_relevance", -1.0) for r in ok]),
+            "mean_completeness": _safe_mean([r.get("completeness", -1.0) for r in ok]),
+            "mean_hallucination_rate": _safe_mean([r.get("hallucination_rate", -1.0) for r in ok]),
+            # New: context-level metrics (Mode 3 uses DB retrieval context)
+            "mean_context_precision": _safe_mean([r.get("context_precision", -1.0) for r in ok]),
+            "mean_context_recall": _safe_mean([r.get("context_recall", -1.0) for r in ok]),
+            "mean_citation_accuracy": _safe_mean([r.get("citation_accuracy", -1.0) for r in ok]),
+            "mean_citation_coverage": _safe_mean([r.get("citation_coverage", -1.0) for r in ok]),
             "avg_latency_s": round(sum(lats) / len(lats), 3) if lats else 0.0,
             "p95_latency_s": lats_s[p95_idx] if lats_s else 0.0,
+            "cost": _cost_summary(ok),
             "errors": len(results) - n,
         }
 
@@ -920,44 +1064,158 @@ def print_summary(summary: dict[str, Any]) -> None:
     print("EVALUATION SUMMARY")
     print("=" * 80)
 
+    def _fmt(val: float, fmt: str = ".3f") -> str:
+        return format(val, fmt) if val >= 0 else "n/a"
+
     m2 = summary.get("mode2_db_query", {})
     if m2.get("total", 0) > 0:
         print(f"\nMode 2 — Database Query ({m2['total']} questions)")
-        print(f"  Contract Hit Rate  : {m2['contract_hit_rate']:.1%}")
-        print(f"  Clause Hit Rate    : {m2['clause_hit_rate']:.1%}")
+        print(f"  Contract Hit Rate     : {m2['contract_hit_rate']:.1%}")
+        print(f"  Clause Hit Rate       : {m2['clause_hit_rate']:.1%}")
         if m2.get("mean_precision_at_k", -1) >= 0:
-            print(f"  Mean Precision@K   : {m2['mean_precision_at_k']:.3f}")
-            print(f"  Mean Recall@K      : {m2['mean_recall_at_k']:.3f}")
-            print(f"  Mean MRR           : {m2['mean_mrr']:.3f}")
-        if m2.get("mean_faithfulness", -1) >= 0:
-            print(f"  Mean Faithfulness  : {m2['mean_faithfulness']:.2f}")
-        print(f"  Avg Latency        : {m2['avg_latency_s']:.2f}s")
-        print(f"  P95 Latency        : {m2['p95_latency_s']:.2f}s")
-        print(f"  Errors             : {m2['errors']}")
+            print(f"  Mean Precision@K      : {m2['mean_precision_at_k']:.3f}")
+            print(f"  Mean Recall@K         : {m2['mean_recall_at_k']:.3f}")
+            print(f"  Mean MRR              : {m2['mean_mrr']:.3f}")
+        print(f"  Mean Faithfulness     : {_fmt(m2.get('mean_faithfulness', -1))}")
+        print(f"  Mean Answer Relevance : {_fmt(m2.get('mean_answer_relevance', -1))}")
+        print(f"  Mean Completeness     : {_fmt(m2.get('mean_completeness', -1))}")
+        print(f"  Mean Hallucination    : {_fmt(m2.get('mean_hallucination_rate', -1))}")
+        print(f"  Mean Ctx Precision    : {_fmt(m2.get('mean_context_precision', -1))}")
+        print(f"  Mean Ctx Recall       : {_fmt(m2.get('mean_context_recall', -1))}")
+        print(f"  Mean Citation Acc.    : {_fmt(m2.get('mean_citation_accuracy', -1))}")
+        print(f"  Mean Citation Cov.    : {_fmt(m2.get('mean_citation_coverage', -1))}")
+        if m2.get("mean_query_consistency", -1) >= 0:
+            print(f"  Mean Query Consist.   : {m2['mean_query_consistency']:.3f}")
+        if m2.get("mean_noise_sensitivity", -1) >= 0:
+            print(f"  Mean Noise Sensitiv.  : {m2['mean_noise_sensitivity']:.3f}")
+        print(f"  Avg Latency           : {m2['avg_latency_s']:.2f}s")
+        print(f"  P95 Latency           : {m2['p95_latency_s']:.2f}s")
+        cost = m2.get("cost", {})
+        if cost.get("total_cost_usd", 0) > 0:
+            print(f"  Est. Cost             : ${cost['total_cost_usd']:.6f} "
+                  f"({cost['total_tokens']} tokens, {cost['query_count']} queries)")
+        print(f"  Errors                : {m2['errors']}")
 
     m1 = summary.get("mode1_single_doc", {})
     if m1.get("total", 0) > 0:
         print(f"\nMode 1 — Single-Doc Analysis ({m1['total']} questions)")
-        print(f"  Clause Hit Rate    : {m1['clause_hit_rate']:.1%}")
-        print(f"  Absent KW Pass     : {m1['absent_keyword_pass_rate']:.1%}")
-        if m1.get("mean_faithfulness", -1) >= 0:
-            print(f"  Mean Faithfulness  : {m1['mean_faithfulness']:.2f}")
-        print(f"  Avg Latency        : {m1['avg_latency_s']:.2f}s")
-        print(f"  P95 Latency        : {m1['p95_latency_s']:.2f}s")
-        print(f"  Errors             : {m1['errors']}")
+        print(f"  Clause Hit Rate       : {m1['clause_hit_rate']:.1%}")
+        print(f"  Absent KW Pass        : {m1['absent_keyword_pass_rate']:.1%}")
+        print(f"  Mean Faithfulness     : {_fmt(m1.get('mean_faithfulness', -1))}")
+        print(f"  Mean Answer Relevance : {_fmt(m1.get('mean_answer_relevance', -1))}")
+        print(f"  Mean Completeness     : {_fmt(m1.get('mean_completeness', -1))}")
+        print(f"  Mean Hallucination    : {_fmt(m1.get('mean_hallucination_rate', -1))}")
+        print(f"  Avg Latency           : {m1['avg_latency_s']:.2f}s")
+        print(f"  P95 Latency           : {m1['p95_latency_s']:.2f}s")
+        cost = m1.get("cost", {})
+        if cost.get("total_cost_usd", 0) > 0:
+            print(f"  Est. Cost             : ${cost['total_cost_usd']:.6f} "
+                  f"({cost['total_tokens']} tokens, {cost['query_count']} queries)")
+        print(f"  Errors                : {m1['errors']}")
 
     m3 = summary.get("mode3_compare", {})
     if m3.get("total", 0) > 0:
         print(f"\nMode 3 — Compare Uploaded vs DB ({m3['total']} questions)")
-        print(f"  Keyword Hit Rate   : {m3['keyword_hit_rate']:.1%}")
-        print(f"  Comparison Hit Rate: {m3['comparison_hit_rate']:.1%}")
-        if m3.get("mean_faithfulness", -1) >= 0:
-            print(f"  Mean Faithfulness  : {m3['mean_faithfulness']:.2f}")
-        print(f"  Avg Latency        : {m3['avg_latency_s']:.2f}s")
-        print(f"  P95 Latency        : {m3['p95_latency_s']:.2f}s")
-        print(f"  Errors             : {m3['errors']}")
+        print(f"  Keyword Hit Rate      : {m3['keyword_hit_rate']:.1%}")
+        print(f"  Comparison Hit Rate   : {m3['comparison_hit_rate']:.1%}")
+        print(f"  Mean Faithfulness     : {_fmt(m3.get('mean_faithfulness', -1))}")
+        print(f"  Mean Answer Relevance : {_fmt(m3.get('mean_answer_relevance', -1))}")
+        print(f"  Mean Completeness     : {_fmt(m3.get('mean_completeness', -1))}")
+        print(f"  Mean Hallucination    : {_fmt(m3.get('mean_hallucination_rate', -1))}")
+        print(f"  Mean Ctx Precision    : {_fmt(m3.get('mean_context_precision', -1))}")
+        print(f"  Mean Ctx Recall       : {_fmt(m3.get('mean_context_recall', -1))}")
+        print(f"  Mean Citation Acc.    : {_fmt(m3.get('mean_citation_accuracy', -1))}")
+        print(f"  Mean Citation Cov.    : {_fmt(m3.get('mean_citation_coverage', -1))}")
+        print(f"  Avg Latency           : {m3['avg_latency_s']:.2f}s")
+        print(f"  P95 Latency           : {m3['p95_latency_s']:.2f}s")
+        cost = m3.get("cost", {})
+        if cost.get("total_cost_usd", 0) > 0:
+            print(f"  Est. Cost             : ${cost['total_cost_usd']:.6f} "
+                  f"({cost['total_tokens']} tokens, {cost['query_count']} queries)")
+        print(f"  Errors                : {m3['errors']}")
 
     print("=" * 80)
+
+
+# ---------------------------------------------------------------------------
+# Robustness evaluation (opt-in via --robustness flag)
+# ---------------------------------------------------------------------------
+
+def run_robustness_eval(
+    base_url: str,
+    mode2_results: list[dict],
+    openai_client: Any | None,
+    top_k: int,
+    n_paraphrases: int = 2,
+) -> None:
+    """Run query-consistency and noise-sensitivity checks on Mode 2 questions.
+
+    Results are written back in-place into each ``mode2_results`` row by adding
+    ``query_consistency`` and ``noise_sensitivity`` keys.
+
+    Query consistency:
+      1. Generate ``n_paraphrases`` paraphrase variants of each question.
+      2. Query each paraphrase via /api/query.
+      3. Score semantic similarity of each paraphrase answer to the original.
+
+    Noise sensitivity:
+      1. Fetch the raw retrieved chunks for the question.
+      2. Inject 30% boilerplate noise chunks.
+      3. Compute faithfulness on the noisy context.
+      4. Score = base_faithfulness – noisy_faithfulness.
+
+    Requires ``openai_client`` for paraphrase generation. Noise sensitivity
+    falls back to local bge-m3 embeddings if OpenAI is unavailable.
+
+    Args:
+        base_url: API base URL.
+        mode2_results: Per-question result dicts from run_mode2_eval (mutated in-place).
+        openai_client: OpenAI client for paraphrase generation; None → skip consistency.
+        top_k: Retrieval cut-off for fetching chunks.
+        n_paraphrases: Number of paraphrases per question (default: 2).
+    """
+    n_qs = sum(1 for r in mode2_results if "error" not in r)
+    print(f"\n[Robustness] Running on {n_qs} Mode 2 questions "
+          f"({n_paraphrases} paraphrases + noise injection each) ...")
+
+    for row in mode2_results:
+        if "error" in row:
+            continue
+
+        qid = row["id"]
+        question = row["question"]
+        original_answer = row.get("answer_preview", "")  # first 300 chars; sufficient for embedding
+        base_faith = row.get("faithfulness", -1.0)
+
+        # --- Query Consistency ---
+        qc_score: float = -1.0
+        if openai_client is not None and original_answer:
+            paraphrases = generate_paraphrases(question, n_paraphrases, openai_client)
+            para_answers: list[str] = []
+            for para_q in paraphrases:
+                try:
+                    para_ans, _ = query_and_collect(base_url, para_q)
+                    para_answers.append(para_ans)
+                except Exception as exc:
+                    logger.warning("Paraphrase query failed for %s: %s", qid, exc)
+            if para_answers:
+                qc_score = score_query_consistency(original_answer, para_answers, _embed_texts)
+        row["query_consistency"] = qc_score
+
+        # --- Noise Sensitivity ---
+        ns_score: float = -1.0
+        try:
+            clean_chunks = eval_retrieve(base_url, question, top_k)
+            if clean_chunks:
+                noisy_chunks = inject_noise_chunks(clean_chunks, noise_ratio=0.3)
+                noisy_context = "\n\n".join(c.get("text", "") for c in noisy_chunks)
+                noisy_faith, _ = judge_faithfulness(noisy_context, original_answer, openai_client)
+                ns_score = score_noise_sensitivity(base_faith, noisy_faith)
+        except Exception as exc:
+            logger.warning("Noise sensitivity failed for %s: %s", qid, exc)
+        row["noise_sensitivity"] = ns_score
+
+        print(f"  {qid:<7} consistency={qc_score:.3f}  noise_sensitivity={ns_score:.3f}")
 
 
 # ---------------------------------------------------------------------------
@@ -969,6 +1227,7 @@ def run_evaluation(
     skip_ingest: bool,
     modes: set[int],
     top_k: int,
+    robustness: bool = False,
 ) -> tuple[dict[str, Any], int]:
     """Run the full evaluation pipeline and return a structured results dict.
 
@@ -977,6 +1236,8 @@ def run_evaluation(
         skip_ingest: If True, skip the ingest step.
         modes: Set of mode numbers to evaluate (1, 2, 3).
         top_k: Retrieval cut-off for IR metrics (Mode 2 only).
+        robustness: If True, run query-consistency and noise-sensitivity checks
+                    on Mode 2 questions after the main evaluation.
 
     Returns:
         Tuple of (results_dict, unix_timestamp).
@@ -1006,6 +1267,7 @@ def run_evaluation(
             "top_k": top_k,
             "skip_ingest": skip_ingest,
             "faithfulness_backend": "gpt-4o-mini" if openai_client is not None else "bge-m3-cosine",
+            "robustness_eval": robustness,
         },
         "ingest_results": [],
         "mode2_results": [],
@@ -1062,6 +1324,17 @@ def run_evaluation(
         print("\n[4/4] Skipping Mode 3 (not in --modes)")
 
     # ------------------------------------------------------------------
+    # Robustness (opt-in, Mode 2 only)
+    # ------------------------------------------------------------------
+    if robustness and 2 in modes and results["mode2_results"]:
+        run_robustness_eval(
+            base_url,
+            results["mode2_results"],
+            openai_client=openai_client,
+            top_k=top_k,
+        )
+
+    # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------
     results["summary"] = build_summary(
@@ -1115,6 +1388,13 @@ def main() -> None:
         default=str(EVAL_DIR),
         help="Directory to write results JSON (default: tests/eval/)",
     )
+    parser.add_argument(
+        "--robustness",
+        action="store_true",
+        default=False,
+        help="Run query-consistency and noise-sensitivity checks on Mode 2 questions "
+             "(adds extra API calls per question; requires --modes to include 2)",
+    )
     args = parser.parse_args()
 
     try:
@@ -1132,6 +1412,7 @@ def main() -> None:
     print(f"  Ground Truth        : {GROUND_TRUTH_PATH}")
     print(f"  Persistent contracts: {PERSISTENT_CONTRACTS_DIR}")
     print(f"  Temp contracts      : {TEMP_CONTRACTS_DIR}")
+    print(f"  Robustness eval     : {'enabled' if args.robustness else 'disabled'}")
     print("=" * 80)
 
     results, timestamp = run_evaluation(
@@ -1139,6 +1420,7 @@ def main() -> None:
         skip_ingest=args.skip_ingest,
         modes=modes,
         top_k=args.top_k,
+        robustness=args.robustness,
     )
 
     out_path = Path(args.output_dir) / f"eval_results_{timestamp}.json"
