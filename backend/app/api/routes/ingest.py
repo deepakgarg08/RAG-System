@@ -20,6 +20,60 @@ router = APIRouter()
 # Validated against EXTRACTOR_REGISTRY in pipeline.py
 _ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 
+import os
+from pathlib import Path
+from typing import List
+
+def get_all_supported_files(base_dir: str, allowed_extensions: set) -> List[str]:
+    """Recursively collect all supported files from base_dir."""
+    files = []
+    for root, _, filenames in os.walk(base_dir):
+        for name in filenames:
+            ext = Path(name).suffix.lower()
+            if ext in allowed_extensions:
+                files.append(os.path.join(root, name))
+    return files
+
+@router.post("/ingest-all")
+def ingest_all_documents() -> dict:
+    """Scan uploads/ directory recursively and ingest all supported files."""
+
+    base_dir = "uploads"
+    start = time.perf_counter()
+
+    try:
+        pipeline = IngestionPipeline()
+    except ModelMismatchError as exc:
+        logger.error("ingest_all: model mismatch — %s", exc)
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    files = get_all_supported_files(base_dir, _ALLOWED_EXTENSIONS)
+
+    if not files:
+        return {"status": "no_files_found", "processed": 0}
+
+    results = []
+    for path in files:
+        try:
+            result = pipeline.ingest(path)
+            results.append(result)
+        except Exception as e:
+            logger.exception("Failed to ingest %s", path)
+            results.append({
+                "filename": path,
+                "status": "failed",
+                "error": str(e)
+            })
+
+    elapsed = time.perf_counter() - start
+
+    return {
+        "status": "completed",
+        "total_files": len(files),
+        "processed": len(results),
+        "elapsed_seconds": round(elapsed, 2),
+        "results": results,
+    }
 
 @router.post("/ingest", response_model=IngestResponse)
 async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:

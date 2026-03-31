@@ -2,7 +2,7 @@
 main.py — FastAPI application entry point.
 Registers all routers, configures CORS, initialises services on startup.
 """
-import logging
+import logging, os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -17,7 +17,7 @@ from app.api.routes.files import router as files_router
 from app.api.routes.suggestions import router as suggestions_router
 from app.api.routes.analyze import router as analyze_router
 from app.api.routes.compliance import router as compliance_router
-
+from app.rag.embeddings import _get_local_model, _get_service
 logger = logging.getLogger(__name__)
 
 
@@ -37,10 +37,22 @@ async def lifespan(app: FastAPI):
     upload_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Upload directory ready: '%s'", upload_dir.resolve())
 
-    mode = "production" if settings.azure_search_endpoint else "demo"
+    mode = "production" if settings.azure_search_endpoint else "development"
     print(f"Starting Riverty Contract Review — mode: {mode}, env: {settings.app_env}")
+    
+    if settings.hf_token:
+        os.environ["HF_TOKEN"] = settings.hf_token
+        logger.info("HF token loaded")
+    else:
+        logger.warning("HF_TOKEN not set")
 
+    _get_local_model()
+    _get_service()
+
+    print("✅ Embedding model preloaded")
     yield
+    
+    
 
     # --- Shutdown ---
     logger.info("Riverty Contract Review shutting down.")

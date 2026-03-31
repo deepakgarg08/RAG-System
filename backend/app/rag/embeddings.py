@@ -13,6 +13,7 @@ import logging
 import numpy as np
 
 from app.config import settings
+from app import state
 
 logger = logging.getLogger(__name__)
 
@@ -42,23 +43,17 @@ else:
 # ------------------------------------------------------------------
 # DEMO: sentence-transformers local model (lazy-loaded, cached globally)
 # ------------------------------------------------------------------
-_local_model = None  # type: ignore[assignment]
+# _local_model = None  # type: ignore[assignment]
 
 
-def _get_local_model():  # type: ignore[return]
-    """Lazy-load the bge-m3 model (downloaded once, cached locally)."""
-    from sentence_transformers import SentenceTransformer  # local import — not loaded in production
+def _get_local_model():
+    from sentence_transformers import SentenceTransformer
 
-    global _local_model
-    if _local_model is None:
-        logger.info(
-            "EmbeddingService: loading %s from local cache "
-            "(first run downloads ~2.3 GB from HuggingFace)...",
-            _EMBEDDING_MODEL,
-        )
-        _local_model = SentenceTransformer(_EMBEDDING_MODEL)
-        logger.info("EmbeddingService: model loaded (%d dims)", _EMBEDDING_DIMS)
-    return _local_model
+    if state.embedding_model is None:
+        logger.info("🔄 Loading embedding model (ONCE)...")
+        state.embedding_model = SentenceTransformer(_EMBEDDING_MODEL)
+
+    return state.embedding_model
 
 
 # ------------------------------------------------------------------
@@ -88,8 +83,8 @@ class EmbeddingService:
         """Initialise the embedding backend for the active environment."""
         self.mode = "azure" if settings.app_env == "production" else "local"
         self.model_name = _EMBEDDING_MODEL
-        if self.mode == "local":
-            _get_local_model()  # pre-load so first embed call is fast
+        # if self.mode == "local":
+        #     _get_local_model()  # pre-load so first embed call is fast
         logger.info(
             "EmbeddingService: mode=%s, model=%s, dims=%d",
             self.mode, self.model_name, _EMBEDDING_DIMS,
@@ -190,11 +185,9 @@ _service: EmbeddingService | None = None
 
 
 def _get_service() -> EmbeddingService:
-    """Return the shared EmbeddingService singleton."""
-    global _service
-    if _service is None:
-        _service = EmbeddingService()
-    return _service
+    if state.embedding_service is None:
+        state.embedding_service = EmbeddingService()
+    return state.embedding_service
 
 
 def get_embedding(text: str) -> list[float]:

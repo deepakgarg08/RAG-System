@@ -40,83 +40,44 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# ── Step 1: ETL ───────────────────────────────────────────────────────────────
+API_URL="http://localhost:8000/api/ingest-all"
+HEALTH_URL="http://localhost:8000/docs"   # simple readiness check
+
+# ── Check if API is reachable ────────────────────────────────────────────────
+if ! curl -s "$HEALTH_URL" > /dev/null; then
+  echo "  FastAPI server not running. Starting it..."
+  uvicorn app.main:app --port 8000 > /dev/null 2>&1 &
+  SERVER_PID=$!
+
+  echo "  Waiting for server to be ready..."
+
+  for i in {1..20}; do
+    if curl -s "$HEALTH_URL" > /dev/null; then
+      echo "  Server is ready ✅"
+      break
+    fi
+    sleep 1
+  done
+fi
+
 echo ""
-echo "============================================================"
-echo "  STEP 1 — ETL PIPELINE"
-echo "  Extract → Clean → Chunk → Embed → Store"
-echo "============================================================"
-
-python - <<'PYEOF'
-import os, sys, logging
-from pathlib import Path
-
-# Show INFO logs so you can see chunking, embedding, and chunk IDs
-logging.basicConfig(
-    level=logging.INFO,
-    format="  [%(name)s] %(message)s",
-)
-
-SUPPORTED = {".pdf", ".jpg", ".jpeg", ".png"}
-upload_dir = Path("uploads")
-
-if not upload_dir.exists():
-    print("  uploads/ folder not found — creating it.")
-    upload_dir.mkdir(parents=True)
-
-files = [f for f in sorted(upload_dir.iterdir()) if f.suffix.lower() in SUPPORTED]
-
-if not files:
-    print(f"  No supported files in uploads/")
-    print(f"  Add .pdf / .jpg / .jpeg / .png files there and re-run.")
-    sys.exit(0)
-
-from app.etl.pipeline import IngestionPipeline
-pipeline = IngestionPipeline()
-
-total_chunks = 0
-for f in files:
-    print(f"\n  ── {f.name} ──────────────────────────────────────")
-    result = pipeline.ingest(str(f.resolve()))
-    print(f"  status:          {result['status']}")
-    print(f"  language:        {result['language']}")
-    print(f"  chars_extracted: {result['chars_extracted']}")
-    print(f"  chunks_created:  {result['chunks_created']}")
-    if result.get("error"):
-        print(f"  error:           {result['error']}")
-    total_chunks += result["chunks_created"]
-
-print(f"\n  Done. Total chunks stored this run: {total_chunks}")
-PYEOF
-
-# ── Step 2: Show ChromaDB stats ───────────────────────────────────────────────
+echo "  Calling ingestion endpoint..."
+echo "  $API_URL"
 echo ""
-echo "============================================================"
-echo "  STEP 2 — CHROMADB: What is stored"
-echo "============================================================"
 
-python - <<'PYEOF'
-import chromadb
-from app.config import settings
+RESPONSE=$(curl -s -X POST "$API_URL")
 
-client = chromadb.PersistentClient(path=settings.chroma_persist_path)
-try:
-    col = client.get_collection("riverty_contracts")
-    count = col.count()
-    print(f"\n  Total chunks in store: {count}")
-    if count > 0:
-        peek = col.peek(min(count, 5))
-        print(f"\n  First {min(count,5)} stored chunks:\n")
-        for i, doc_id in enumerate(peek["ids"]):
-            meta = peek["metadatas"][i]
-            text = peek["documents"][i]
-            print(f"    [{i+1}] {doc_id}")
-            print(f"         source:  {meta['source_file']}  |  chunk {meta['chunk_index']}  |  lang={meta['language']}")
-            print(f"         preview: {text[:90].strip()}...")
-            print()
-except Exception as e:
-    print(f"  Could not read ChromaDB: {e}")
-PYEOF
+if [ -z "$RESPONSE" ]; then
+  echo "  ERROR: No response from ingestion API."
+  echo "  Possible causes:"
+  echo "   - Server still starting"
+  echo "   - Endpoint crashed"
+  echo "   - Wrong route path"
+  exit 1
+fi
+
+echo "  Ingestion Result:"
+echo "$RESPONSE" | python -m json.tool
 
 # ── Step 3: RAG + LLM query ───────────────────────────────────────────────────
 if [ "$INGEST_ONLY" = true ]; then

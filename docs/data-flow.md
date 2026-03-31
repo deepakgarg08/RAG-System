@@ -7,7 +7,7 @@ a contract upload and a cross-contract query.
 
 ## Flow 1: Ingesting a Contract File
 
-**Input:** User uploads `contract_nda_techcorp_2023.pdf` via the React drag-drop interface.
+**Input:** User uploads example `contract_nda_techcorp_2023.pdf` via the React drag-drop interface.
 
 ### Step 1 — Frontend → POST /api/ingest
 User drops the file onto the `FileUpload` component.

@@ -1,9 +1,9 @@
 """
 config.py — Single source of truth for all configuration values.
-Reads from .env via pydantic-settings. This is the ONLY file in the project
-that reads environment variables — all other modules import from here.
 """
+
 import logging
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field
 
@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # --- Application ---
     app_env: str = Field(default="development", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+    # --- HuggingFace ---
+    hf_token: str | None = Field(default=None, alias="HF_TOKEN")
 
     # --- OpenAI (DEMO mode) ---
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
@@ -28,7 +31,7 @@ class Settings(BaseSettings):
     # --- ETL parameters ---
     max_chunk_size: int = Field(default=1500, alias="MAX_CHUNK_SIZE")
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP")
-    top_k_results: int = Field(default=8, alias="TOP_K_RESULTS")  # raised from 5 for better recall
+    top_k_results: int = Field(default=8, alias="TOP_K_RESULTS")
 
     # --- Azure OpenAI (PRODUCTION — optional) ---
     azure_openai_api_key: str = Field(default="", alias="AZURE_OPENAI_API_KEY")
@@ -50,16 +53,34 @@ class Settings(BaseSettings):
     azure_doc_intelligence_key: str = Field(default="", alias="AZURE_DOC_INTELLIGENCE_KEY")
 
     # --- External Compliance Storage API (optional) ---
-    # When set, every ingested file is sent here for legally compliant archival.
-    # If the call fails, ingestion continues — this step is fire-and-forget.
     compliance_api_url: str = Field(default="", alias="COMPLIANCE_API_URL")
 
-    model_config = {"env_file": ".env", "populate_by_name": True}
+    model_config = {
+        "env_file": ".env",
+        "populate_by_name": True,
+    }
+
+    def ensure_paths_exist(self):
+        """Create required directories and files if they don't exist."""
+
+        Path(self.upload_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.chroma_persist_path).mkdir(parents=True, exist_ok=True)
+
+        registry_file = Path(self.registry_path)
+        if not registry_file.exists():
+            registry_file.parent.mkdir(parents=True, exist_ok=True)
+            registry_file.write_text("{}", encoding="utf-8")
+
+        logging.info("✅ All required directories and files are ensured.")
 
 
-# Singleton — all modules import this instance
+# Singleton
 settings = Settings()
 
+# Ensure paths
+settings.ensure_paths_exist()
+
+# Logging
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
