@@ -6,7 +6,7 @@
 
 import type { HealthResponse, IngestResponse } from '../types';
 
-export const BASE_URL = 'http://localhost:8000';
+export const BASE_URL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:8000';
 
 export async function uploadContract(file: File): Promise<IngestResponse> {
   const formData = new FormData();

@@ -11,7 +11,8 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 
 from app.config import settings
-from app.rag.retriever import ContractRetriever
+from app.rag.hybrid_retriever import HybridRetriever
+from app.rag.reranker import rerank, mmr_filter
 from app.rag.llm_client import _get_llm_client, _get_model_name
 from app.rag.document_analyzer import (
     build_missing_clause_context,
@@ -168,7 +169,12 @@ async def query_router(state: AgentState) -> dict:
 
 
 def retriever_node(state: AgentState) -> dict:
-    """Retrieve semantically relevant contract chunks for the question.
+    """Retrieve, rerank, and diversify contract chunks for the question.
+
+    Pipeline:
+    1. HybridRetriever fetches top_k*2 candidates via BM25 + dense (RRF merged).
+    2. CrossEncoder reranker rescores the candidates more accurately than cosine sim.
+    3. MMR filter selects the final top_k chunks, removing near-duplicate clauses.
 
     Args:
         state: Current agent state containing the user question.
@@ -176,19 +182,32 @@ def retriever_node(state: AgentState) -> dict:
     Returns:
         Partial state update with retrieved_chunks (and answer if none found).
     """
-    retriever = ContractRetriever()
-    chunks = retriever.retrieve(
+    retriever = HybridRetriever()
+    # Fetch double the final count so reranker + MMR have candidates to work with
+    candidates = retriever.retrieve(
         query=state["question"],
-        top_k=settings.top_k_results,
+        top_k=settings.top_k_results * 2,
     )
-    if not chunks:
+    if not candidates:
         logger.warning("retriever_node: no chunks found for query '%s'", state["question"])
         return {
             "retrieved_chunks": [],
             "answer": "No relevant contracts found.",
         }
-    logger.info("retriever_node: retrieved %d chunks", len(chunks))
-    return {"retrieved_chunks": chunks}
+
+    # Rerank with cross-encoder for higher relevance accuracy
+    reranked = rerank(state["question"], candidates, top_k=settings.top_k_results)
+
+    # MMR filter to remove redundant near-duplicate chunks
+    final_chunks = mmr_filter(reranked, top_k=settings.top_k_results)
+
+    logger.info(
+        "retriever_node: %d candidates → %d reranked → %d after MMR",
+        len(candidates),
+        len(reranked),
+        len(final_chunks),
+    )
+    return {"retrieved_chunks": final_chunks}
 
 
 async def reasoner(state: AgentState) -> dict:

@@ -47,15 +47,18 @@ def mock_openai_embeddings(monkeypatch):
 
     Name kept as mock_openai_embeddings for backward compatibility with all
     existing test signatures — the underlying model is now bge-m3 (local).
+
+    The model singleton lives in app.state (shared across embeddings.py,
+    hybrid_retriever.py, and any other module using EmbeddingService).
     """
+    import app.state as state_module
     import app.rag.embeddings as emb_module
 
     mock_model = _make_mock_st_model()
-    monkeypatch.setattr(emb_module, "_local_model", mock_model)
-    monkeypatch.setattr(emb_module, "_service", None)  # reset singleton
-    # SentenceTransformer is now a local import inside _get_local_model() so it
-    # cannot be patched at module level. Patching _local_model directly is sufficient
-    # because _get_local_model() short-circuits when _local_model is already set.
+    # Inject into the shared state singleton so _get_local_model() short-circuits
+    monkeypatch.setattr(state_module, "embedding_model", mock_model)
+    monkeypatch.setattr(state_module, "embedding_service", None)  # reset service
+    monkeypatch.setattr(emb_module, "_service", None)  # reset module-level cache
     yield mock_model
 
 
@@ -230,17 +233,14 @@ def mock_openai_embedding(monkeypatch):
     via EmbeddingService). Resets the EmbeddingService singleton so every
     test gets a fresh mock client.
     """
-    import app.rag.embeddings as emb_module
-
-    # Reset singleton so new EmbeddingService() picks up the mock client
-    monkeypatch.setattr(emb_module, "_service", None)
-
+    import app.state as state_module
     import app.rag.embeddings as emb_module
 
     fake_vector = [1.0 / 1024] * 1024
     mock_model = _make_mock_st_model()
 
-    monkeypatch.setattr(emb_module, "_local_model", mock_model)
+    monkeypatch.setattr(state_module, "embedding_model", mock_model)
+    monkeypatch.setattr(state_module, "embedding_service", None)
     monkeypatch.setattr(emb_module, "_service", None)
 
     # SentenceTransformer is a local import inside _get_local_model() — cannot be

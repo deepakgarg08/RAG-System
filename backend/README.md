@@ -17,6 +17,8 @@ about them — the AI reads the documents and gives grounded answers with contra
 | PyMuPDF | 1.27.2.2 | PDF text extraction | Textract |
 | pytesseract | 0.3.13 | OCR for scanned images | Textract |
 | LangDetect | 1.0.9 | Language detection | Comprehend |
+| rank-bm25 | 0.2.2 | BM25 keyword index for hybrid retrieval | — |
+| pyspellchecker | 0.8.2 | OCR spell correction (EN + DE) | — |
 | Pydantic | 2.12.5 | Request/response validation | — |
 | pydantic-settings | 2.13.1 | Config from .env | SSM Parameter Store |
 

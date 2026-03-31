@@ -9,7 +9,7 @@
  *   data: [DONE]\n\n
  */
 
-const BASE_URL = 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:8000';
 
 /** Shared SSE reader — consumes a Response body and yields plain-text tokens. */
 async function* readSseStream(response: Response): AsyncGenerator<string> {

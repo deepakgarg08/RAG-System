@@ -27,6 +27,7 @@ Contract PDF uploaded (1 file, ~50KB)
      ↓
 [Cleaner] cleaner.py
   Removes OCR artifacts, whitespace, stray symbols → ~3,200 clean characters
+  Corrects common OCR spelling errors (EN + DE, distance-1, conservative)
   Detects language → "en"
      ↓
 [Chunker] chunker.py
@@ -40,15 +41,23 @@ Contract PDF uploaded (1 file, ~50KB)
   4 vectors + metadata stored in ChromaDB local collection
 ```
 
-## Why Chunk Size 1000 / Overlap 200?
+## Why Chunk Size 1500 / Overlap 200?
 
-- **1000 chars ≈ one legal clause** — the natural atomic unit of meaning in a contract.
+- **1500 chars ≈ one legal clause** — the natural atomic unit of meaning in a contract.
   A clause fits in one chunk; retrieval returns the full clause, not half of it.
 - **200-char overlap** prevents a sentence from being split across a chunk boundary.
   The sentence tail from chunk N appears at the head of chunk N+1.
 - **Tested alternatives:**
   - 500 chars: loses clause context — a clause split across 2+ chunks hurts precision
   - 2000 chars: too broad — retrieval returns large blocks with mixed topics
+
+## OCR Spell Correction (cleaner.py)
+
+`correct_ocr_errors()` fixes single-character OCR misreads using `pyspellchecker`
+with English and German dictionaries. Conservative rules prevent over-correction:
+- Only corrects plain lowercase words ≥ 5 characters
+- Skips proper nouns (initial uppercase), abbreviations (ALL-CAPS), words with digits
+- Requires both EN and DE dictionaries to agree on the same correction
 
 ## Sub-folders
 
