@@ -50,6 +50,17 @@ import time
 from pathlib import Path
 from typing import Any
 
+# Load .env so OPENAI_API_KEY and other secrets are available even when
+# running this script directly (outside the FastAPI process which loads
+# them via pydantic_settings).
+try:
+    from dotenv import load_dotenv
+    _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+    if _env_path.exists():
+        load_dotenv(_env_path, override=False)  # override=False: real env vars win
+except ImportError:
+    pass  # python-dotenv not installed — env vars must be set manually
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -440,7 +451,7 @@ def judge_faithfulness(
     context: str,
     answer: str,
     openai_client: Any | None,
-) -> float:
+) -> tuple[float, str]:
     """Score faithfulness with automatic backend selection.
 
     Tries OpenAI GPT-4o-mini first; falls back to local bge-m3 cosine
@@ -452,14 +463,16 @@ def judge_faithfulness(
         openai_client: openai.OpenAI client, or None to force local fallback.
 
     Returns:
-        Faithfulness score 0.0–1.0, or -1.0 if both backends fail.
+        Tuple of (score, source) where score is 0.0–1.0 (-1.0 on failure)
+        and source is "llm" | "embed" | "error".
     """
     if openai_client is not None:
         score = judge_faithfulness_llm(context, answer, openai_client)
         if score >= 0:
-            return score
+            return score, "llm"
     # Fallback: local embedding cosine similarity
-    return judge_faithfulness_embeddings(context, answer)
+    score = judge_faithfulness_embeddings(context, answer)
+    return score, "embed" if score >= 0 else "error"
 
 
 # ---------------------------------------------------------------------------
@@ -542,8 +555,8 @@ def run_mode2_eval(
     """
     results: list[dict] = []
     print(f"\n[2/4] Mode 2 — Database queries ({len(questions)} questions)")
-    print(f"{'ID':<7} {'C-Hit':<7} {'Kw-Hit':<8} {'P@K':<7} {'R@K':<7} {'MRR':<7} {'Faith':<7} {'Lat':>7}  Question")
-    print("-" * 100)
+    print(f"{'ID':<7} {'C-Hit':<7} {'Kw-Hit':<8} {'P@K':<7} {'R@K':<7} {'MRR':<7} {'Faith[src]':<14} {'Lat':>7}  Question")
+    print("-" * 108)
 
     for q in questions:
         qid = q["id"]
@@ -589,23 +602,25 @@ def run_mode2_eval(
 
         # --- Faithfulness (LLM judge if OpenAI available, else local bge-m3 cosine) ---
         faith: float = -1.0
+        faith_src: str = "error"
         try:
             retrieved_for_faith = eval_retrieve(base_url, question, top_k)
             context = "\n\n".join(c.get("text", "") for c in retrieved_for_faith)
-            faith = judge_faithfulness(context, answer, openai_client)
+            faith, faith_src = judge_faithfulness(context, answer, openai_client)
         except Exception as exc:
             logger.warning("Faithfulness failed for %s: %s", qid, exc)
         row["faithfulness"] = faith
+        row["faithfulness_source"] = faith_src
 
         # --- Print row ---
         p_str = f"{ir['precision_at_k']:.2f}" if ir["precision_at_k"] >= 0 else "n/a"
         r_str = f"{ir['recall_at_k']:.2f}" if ir["recall_at_k"] >= 0 else "n/a"
         m_str = f"{ir['mrr']:.2f}" if ir["mrr"] >= 0 else "n/a"
-        f_str = f"{faith:.2f}" if faith >= 0 else "n/a"
+        f_str = f"{faith:.2f}[{faith_src}]" if faith >= 0 else "n/a"
         print(
             f"{qid:<7} {'PASS' if contract_hit else 'FAIL':<7} "
             f"{'PASS' if clause_hit else 'FAIL':<8} "
-            f"{p_str:<7} {r_str:<7} {m_str:<7} {f_str:<7} "
+            f"{p_str:<7} {r_str:<7} {m_str:<7} {f_str:<12} "
             f"{latency:>6.2f}s  {question[:50]}"
         )
 
@@ -640,8 +655,8 @@ def run_mode1_eval(
     """
     results: list[dict] = []
     print(f"\n[3/4] Mode 1 — Single-doc analysis ({len(questions)} questions)")
-    print(f"{'ID':<7} {'Kw-Hit':<8} {'AbsKw':<8} {'Faith':<7} {'Lat':>7}  Question")
-    print("-" * 80)
+    print(f"{'ID':<7} {'Kw-Hit':<8} {'AbsKw':<8} {'Faith[src]':<14} {'Lat':>7}  Question")
+    print("-" * 88)
 
     for q in questions:
         qid = q["id"]
@@ -686,22 +701,24 @@ def run_mode1_eval(
 
         # --- Faithfulness: judge against raw document text (LLM or local embeddings) ---
         faith: float = -1.0
+        faith_src: str = "error"
         try:
             from app.etl.extractors.pdf_extractor import PDFExtractor
             from app.etl.transformers.cleaner import TextCleaner
             pages = PDFExtractor().extract(str(pdf_path))
             cleaner = TextCleaner()
             doc_text = "\n\n".join(cleaner.clean(p["text"]) for p in pages if p.get("text"))
-            faith = judge_faithfulness(doc_text, answer, openai_client)
+            faith, faith_src = judge_faithfulness(doc_text, answer, openai_client)
         except Exception as exc:
             logger.warning("Faithfulness failed for %s: %s", qid, exc)
         row["faithfulness"] = faith
+        row["faithfulness_source"] = faith_src
 
-        f_str = f"{faith:.2f}" if faith >= 0 else "n/a"
+        f_str = f"{faith:.2f}[{faith_src}]" if faith >= 0 else "n/a"
         print(
             f"{qid:<7} {'PASS' if clause_hit else 'FAIL':<8} "
             f"{'PASS' if absent_ok else 'FAIL':<8} "
-            f"{f_str:<7} {latency:>6.2f}s  {question[:50]}"
+            f"{f_str:<12} {latency:>6.2f}s  {question[:50]}"
         )
 
         results.append(row)
@@ -735,8 +752,8 @@ def run_mode3_eval(
     """
     results: list[dict] = []
     print(f"\n[4/4] Mode 3 — Compare uploaded vs DB ({len(questions)} questions)")
-    print(f"{'ID':<7} {'Kw-Hit':<8} {'Cmp-Hit':<9} {'Faith':<7} {'Lat':>7}  Question")
-    print("-" * 85)
+    print(f"{'ID':<7} {'Kw-Hit':<8} {'Cmp-Hit':<9} {'Faith[src]':<14} {'Lat':>7}  Question")
+    print("-" * 93)
 
     for q in questions:
         qid = q["id"]
@@ -782,19 +799,21 @@ def run_mode3_eval(
 
         # --- Faithfulness: DB retrieval context (LLM or local embeddings) ---
         faith: float = -1.0
+        faith_src: str = "error"
         try:
             retrieved = eval_retrieve(base_url, question, top_k=8)
             context = "\n\n".join(c.get("text", "") for c in retrieved)
-            faith = judge_faithfulness(context, answer, openai_client)
+            faith, faith_src = judge_faithfulness(context, answer, openai_client)
         except Exception as exc:
             logger.warning("Faithfulness failed for %s: %s", qid, exc)
         row["faithfulness"] = faith
+        row["faithfulness_source"] = faith_src
 
-        f_str = f"{faith:.2f}" if faith >= 0 else "n/a"
+        f_str = f"{faith:.2f}[{faith_src}]" if faith >= 0 else "n/a"
         print(
             f"{qid:<7} {'PASS' if kw_hit else 'FAIL':<8} "
             f"{'PASS' if comparison_hit else 'FAIL':<9} "
-            f"{f_str:<7} {latency:>6.2f}s  {question[:50]}"
+            f"{f_str:<12} {latency:>6.2f}s  {question[:50]}"
         )
 
         results.append(row)
