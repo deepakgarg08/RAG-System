@@ -1,0 +1,118 @@
+{
+  "description": "Ground-truth evaluation dataset for the Riverty RAG contract review system. Based on the 4 real contracts in uploads/synthetic_legal_db/persistent_contracts/.",
+  "version": "2.0",
+  "contracts": [
+    {
+      "filename": "contract_gdpr_strict.pdf",
+      "path": "uploads/synthetic_legal_db/persistent_contracts/contract_gdpr_strict.pdf",
+      "clauses": {
+        "data_protection": "Full GDPR (EU 2016/679) — encryption, access control, data subject rights: access, rectification, erasure, restriction, portability",
+        "termination": "Either party, 15 days written notice, no cause required",
+        "liability": "Capped at total fees paid in preceding 12 months, no indirect/incidental/consequential",
+        "governing_law": "Germany"
+      }
+    },
+    {
+      "filename": "contract_missing_gdpr.pdf",
+      "path": "uploads/synthetic_legal_db/persistent_contracts/contract_missing_gdpr.pdf",
+      "clauses": {
+        "data_protection": "DATA USAGE only — no explicit GDPR obligations, no mention of EU 2016/679",
+        "termination": "WEAK — only under exceptional circumstances at Service Provider discretion. No guaranteed termination rights for Client.",
+        "liability": "Capped at total fees paid in preceding 12 months, no indirect/incidental/consequential",
+        "governing_law": "Germany"
+      }
+    },
+    {
+      "filename": "contract_unlimited_liability.pdf",
+      "path": "uploads/synthetic_legal_db/persistent_contracts/contract_unlimited_liability.pdf",
+      "clauses": {
+        "data_protection": "Full GDPR (EU 2016/679) — encryption, access control, data subject rights",
+        "termination": "Either party, 15 days written notice, no cause required",
+        "liability": "UNLIMITED — Service Provider assumes full and unlimited liability including direct, indirect, incidental, consequential",
+        "governing_law": "Germany"
+      }
+    },
+    {
+      "filename": "contract_weak_termination.pdf",
+      "path": "uploads/synthetic_legal_db/persistent_contracts/contract_weak_termination.pdf",
+      "clauses": {
+        "data_protection": "Full GDPR (EU 2016/679) — encryption, access control, data subject rights",
+        "termination": "WEAK — only under exceptional circumstances at Service Provider discretion. No guaranteed termination rights for Client.",
+        "liability": "Capped at total fees paid in preceding 12 months, no indirect/incidental/consequential",
+        "governing_law": "Germany"
+      }
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q01",
+      "question": "Which contract is missing a GDPR compliance clause?",
+      "expected_contracts": ["contract_missing_gdpr"],
+      "expected_keywords": ["missing_gdpr", "data usage", "no explicit", "gdpr", "missing"],
+      "description": "Tests find_missing: RAG must identify the one contract that lacks GDPR"
+    },
+    {
+      "id": "Q02",
+      "question": "Which contract has unlimited liability?",
+      "expected_contracts": ["contract_unlimited_liability"],
+      "expected_keywords": ["unlimited_liability", "unlimited liability", "full and unlimited", "unlimited"],
+      "description": "Tests clause detection: identify the contract with an unusual unlimited liability clause"
+    },
+    {
+      "id": "Q03",
+      "question": "Which contracts have a weak termination clause where the client has no guaranteed termination rights?",
+      "expected_contracts": ["contract_missing_gdpr", "contract_weak_termination"],
+      "expected_keywords": ["exceptional circumstances", "service provider", "no guaranteed", "discretion", "weak"],
+      "description": "Tests find_missing/compare: must identify two contracts with weak termination"
+    },
+    {
+      "id": "Q04",
+      "question": "How many days written notice is required to terminate the contract_gdpr_strict agreement?",
+      "expected_contracts": ["contract_gdpr_strict"],
+      "expected_keywords": ["15", "fifteen", "fifteen (15)", "15 days"],
+      "description": "Tests specific numeric fact extraction from a termination clause"
+    },
+    {
+      "id": "Q05",
+      "question": "What data subject rights are mentioned in the GDPR compliance clause?",
+      "expected_contracts": ["contract_gdpr_strict", "contract_unlimited_liability", "contract_weak_termination"],
+      "expected_keywords": ["rectification", "erasure", "portability", "data portability", "access"],
+      "description": "Tests detailed clause content extraction from the GDPR section"
+    },
+    {
+      "id": "Q06",
+      "question": "What is the governing law for these contracts?",
+      "expected_contracts": ["contract_gdpr_strict", "contract_missing_gdpr", "contract_unlimited_liability", "contract_weak_termination"],
+      "expected_keywords": ["germany", "german", "laws of germany"],
+      "description": "Tests retrieval of governing law clause — same answer across all 4 contracts"
+    },
+    {
+      "id": "Q07",
+      "question": "What is the liability cap in contracts that limit liability?",
+      "expected_contracts": ["contract_gdpr_strict", "contract_missing_gdpr", "contract_weak_termination"],
+      "expected_keywords": ["twelve (12) months", "12 months", "twelve months", "preceding twelve", "total fees"],
+      "description": "Tests numeric liability cap extraction — 12 months of fees"
+    },
+    {
+      "id": "Q08",
+      "question": "Does contract_missing_gdpr include data protection obligations under EU regulations?",
+      "expected_contracts": ["contract_missing_gdpr"],
+      "expected_keywords": ["no explicit", "data usage", "not", "missing", "operational", "no gdpr", "no explicit obligations"],
+      "description": "Tests negative clause detection — the answer should confirm GDPR is absent"
+    },
+    {
+      "id": "Q09",
+      "question": "Which contracts allow either party to terminate with written notice?",
+      "expected_contracts": ["contract_gdpr_strict", "contract_unlimited_liability"],
+      "expected_keywords": ["either party", "15 days", "fifteen", "written notice", "without cause"],
+      "description": "Tests find_clause: identify contracts with balanced termination rights for both parties"
+    },
+    {
+      "id": "Q10",
+      "question": "In the contract with unlimited liability, what types of damages is the Service Provider liable for?",
+      "expected_contracts": ["contract_unlimited_liability"],
+      "expected_keywords": ["direct", "indirect", "incidental", "consequential", "unlimited"],
+      "description": "Tests detailed clause extraction from the unlimited liability contract"
+    }
+  ]
+}

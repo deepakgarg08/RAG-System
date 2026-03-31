@@ -18,6 +18,7 @@ uploads/
 htmlcov/
 .coverage
 backend/rag_test_results.json
+backend/tests/eval/eval_results_*.json
 
 # Runtime logs (kept in logs/ folder, not committed)
 backend/logs/*.log
