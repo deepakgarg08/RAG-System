@@ -17,6 +17,7 @@ uploads/
 .pytest_cache/
 htmlcov/
 .coverage
+backend/rag_test_results.json
 
 # Runtime logs (kept in logs/ folder, not committed)
 backend/logs/*.log
