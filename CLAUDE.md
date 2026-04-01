@@ -76,4 +76,4 @@ Always read README.md before editing files in:
 - After implementing a new feature or making a significant change:
   run all tests 
   update documentation before committing
-  Update local README.md if necessary, but also consider if a new ADR is warranted for architectural decisions.
+  Update local README.md if necessary

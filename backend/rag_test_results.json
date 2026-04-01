@@ -1,0 +1,88 @@
+{
+    "mode1": [
+        {
+            "file": "temp_contract_1.pdf",
+            "question": "Is this contract GDPR compliant?",
+            "response": "This information was not found in the provided document .",
+            "status_code": 200,
+            "latency": 0.033339738845825195
+        },
+        {
+            "file": "temp_contract_1.pdf",
+            "question": "Does this contract have unlimited liability?",
+            "response": "Yes , the contract states that the Service Provider agrees to assume full and unlimited liability for any damages , losses , or claims arising out of or in connection with the Agreement .",
+            "status_code": 200,
+            "latency": 0.026053428649902344
+        },
+        {
+            "file": "temp_contract_1.pdf",
+            "question": "What kind of termination clause is present?",
+            "response": "The termination clause in the document states that termination of the Agreement may occur only under exceptional circumstances , as determined solely at the discretion of the Service Provider . No guaranteed termination rights are granted to the Client .",
+            "status_code": 200,
+            "latency": 0.03951740264892578
+        }
+    ],
+    "mode2": [
+        {
+            "file": "temp_contract_1.pdf",
+            "question": "Compare this contract with existing contracts",
+            "response": "This information was not found in the provided document .",
+            "status_code": 200,
+            "latency": 0.030063390731811523
+        },
+        {
+            "file": "temp_contract_1.pdf",
+            "question": "How does this contract differ in terms of termination clauses?",
+            "response": "The termination clause in this contract states that termination of the Agreement may occur only under exceptional circumstances , as determined solely at the discretion of the Service Provider . It also specifies that no guaranteed termination rights are granted to the Client . This means that the ability to terminate the contract is heavily restricted and controlled by the Service Provider , with no assured rights for the Client to terminate the Agreement .",
+            "status_code": 200,
+            "latency": 0.052402496337890625
+        },
+        {
+            "file": "temp_contract_1.pdf",
+            "question": "Which contracts are most similar to this one?",
+            "response": "This information was not found in the provided document .",
+            "status_code": 200,
+            "latency": 0.05061984062194824
+        }
+    ],
+    "mode3": [
+        {
+            "question": "Which contracts are missing GDPR compliance?",
+            "response": "- [contract_gdpr_strict.pdf] → contains the clause: \"The Parties acknowledge that they shall comply with all applicable data protection laws, including but not limited to the General Data Protection Regulation (EU) 2016/679 (GDPR).\" [contract_unlimited_liability.pdf] → contains the clause: \"The Parties acknowledge that they shall comply with all applicable data protection laws, including but not limited to the General Data Protection Regulation (EU) 2016/679 (GDPR).\" [contract_weak_termination.pdf] → contains the clause: \"The Parties acknowledge that they shall comply with all applicable data protection laws, including but not limited to the General Data Protection Regulation (EU) 2016/679 (GDPR).\" [contract_missing_gdpr.pdf] → clause not found in the retrieved excerpts  ● medium relevance  [contract_gdpr_strict.pdf (Page 1)](/files/contract_gdpr_strict.pdf#page=1)  ● medium relevance  [contract_unlimited_liability.pdf (Page 1)](/files/contract_unlimited_liability.pdf#page=1)  ● medium relevance  [contract_weak_termination.pdf (Page 1)](/files/contract_weak_termination.pdf#page=1)  ● low relevance  [contract_missing_gdpr.pdf (Page 1)](/files/contract_missing_gdpr.pdf#page=1)",
+            "status_code": 200,
+            "latency": 0.025262832641601562
+        },
+        {
+            "question": "Which contracts have unlimited liability?",
+            "response": "The contract titled \"contract_unlimited_liability.pdf\" includes a clause where the Service Provider agrees to assume full and unlimited liability for any damages, losses, or claims arising out of or in connection with the Agreement.  information was not found in the other uploaded contracts.  ● medium relevance  [contract_unlimited_liability.pdf (Page 3)](/files/contract_unlimited_liability.pdf#page=3)  ● medium relevance  [contract_weak_termination.pdf (Pages 2, 3)](/files/contract_weak_termination.pdf#page=2)  ● medium relevance  [contract_gdpr_strict.pdf (Page 3)](/files/contract_gdpr_strict.pdf#page=3)  ● medium relevance  [contract_missing_gdpr.pdf (Page 3)](/files/contract_missing_gdpr.pdf#page=3)",
+            "status_code": 200,
+            "latency": 0.01643848419189453
+        },
+        {
+            "question": "Which contracts have weak termination clauses?",
+            "response": "The contracts with weak termination clauses are those where termination may occur only under exceptional circumstances, as determined solely at the discretion of the Service Provider, with no guaranteed termination rights granted to the Client. These clauses are found in the documents titled \"contract_missing_gdpr.pdf\" and \"contract_weak_termination.pdf.\"  ● low relevance  [contract_missing_gdpr.pdf (Page 2)](/files/contract_missing_gdpr.pdf#page=2)  ● low relevance  [contract_weak_termination.pdf (Page 2)](/files/contract_weak_termination.pdf#page=2)  ● low relevance  [contract_gdpr_strict.pdf (Pages 2, 3)](/files/contract_gdpr_strict.pdf#page=2)  ● low relevance  [contract_unlimited_liability.pdf (Page 2)](/files/contract_unlimited_liability.pdf#page=2)",
+            "status_code": 200,
+            "latency": 0.026012420654296875
+        },
+        {
+            "question": "Which contracts are GDPR compliant but have weak termination clauses?",
+            "response": "contract_weak_termination.pdf → contains the clause: \"TERMINATION Termination of this Agreement may occur only under exceptional circumstances, as determined solely at the discretion of the Service Provider.\" → clause not found in the retrieved excerpts → contains the clause: \"DATA PROTECTION AND GDPR COMPLIANCE The Parties acknowledge that they shall comply with all applicable data protection laws, including but not limited to the General Data Protection Regulation (EU) 2016/679 (GDPR).\" → contains the clause: \"DATA PROTECTION AND GDPR COMPLIANCE The Parties acknowledge that they shall comply with all applicable data protection laws, including but not limited to the General Data Protection Regulation (EU) 2016/679 (GDPR).\" on the excerpts, the contract that is GDPR compliant and has a weak termination clause is: → contains the clause: \"DATA PROTECTION AND GDPR COMPLIANCE The Parties acknowledge that they shall comply with all applicable data protection laws, including but not limited to the General Data Protection Regulation (EU) 2016/679 (GDPR).\"  ● medium relevance  [contract_weak_termination.pdf (Pages 1, 2)](/files/contract_weak_termination.pdf#page=1)  ● medium relevance  [contract_missing_gdpr.pdf (Page 2)](/files/contract_missing_gdpr.pdf#page=2)  ● medium relevance  [contract_gdpr_strict.pdf (Page 1)](/files/contract_gdpr_strict.pdf#page=1)  ● medium relevance  [contract_unlimited_liability.pdf (Page 1)](/files/contract_unlimited_liability.pdf#page=1)",
+            "status_code": 200,
+            "latency": 0.025069236755371094
+        }
+    ],
+    "stress": [
+        {
+            "question": "Do any agreements follow European data protection regulations?",
+            "response": "Yes, several agreements explicitly state compliance with European data protection regulations, specifically the General Data Protection Regulation (EU) 2016/679 (GDPR). These agreements ensure that personal data is processed lawfully, fairly, and transparently, with appropriate security measures such as encryption and access control. They also guarantee that data subjects retain full rights, including access, rectification, erasure, restriction of processing, and data portability.  one agreement does not explicitly mention obligations regarding international data protection regulations.  ● high relevance  [contract_gdpr_strict.pdf (Page 1)](/files/contract_gdpr_strict.pdf#page=1)  ● high relevance  [contract_unlimited_liability.pdf (Page 1)](/files/contract_unlimited_liability.pdf#page=1)  ● high relevance  [contract_weak_termination.pdf (Page 1)](/files/contract_weak_termination.pdf#page=1)  ● medium relevance  [contract_missing_gdpr.pdf (Pages 1, 4)](/files/contract_missing_gdpr.pdf#page=1)",
+            "status_code": 200,
+            "latency": 0.02641749382019043
+        },
+        {
+            "question": "Is this contract legally safe?",
+            "response": "This information was not found in the uploaded contracts.  ● low relevance  [contract_weak_termination.pdf (Pages 2, 3)](/files/contract_weak_termination.pdf#page=2)  ● low relevance  [contract_missing_gdpr.pdf (Pages 2, 3)](/files/contract_missing_gdpr.pdf#page=2)  ● low relevance  [contract_gdpr_strict.pdf (Page 3)](/files/contract_gdpr_strict.pdf#page=3)",
+            "status_code": 200,
+            "latency": 0.029118776321411133
+        }
+    ]
+}

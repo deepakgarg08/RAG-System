@@ -1,0 +1,262 @@
+{
+  "description": "Ground-truth evaluation dataset for all three Riverty RAG modes. All content read directly from the actual PDF files.",
+  "version": "3.0",
+
+  "persistent_contracts": [
+    {
+      "filename": "contract_gdpr_strict.pdf",
+      "path": "uploads/synthetic_legal_db/persistent_contracts/contract_gdpr_strict.pdf",
+      "pages": {
+        "1": "Full GDPR (EU 2016/679) — encryption, access control, data subject rights: access, rectification, erasure, restriction, portability",
+        "2": "TERMINATION — Either party, 15 days written notice, no cause required",
+        "3": "LIABILITY — Capped at total fees in preceding 12 months, no indirect/incidental/consequential",
+        "4": "GOVERNING LAW — Germany"
+      }
+    },
+    {
+      "filename": "contract_missing_gdpr.pdf",
+      "path": "uploads/synthetic_legal_db/persistent_contracts/contract_missing_gdpr.pdf",
+      "pages": {
+        "1": "DATA USAGE only — no GDPR, no EU 2016/679 mention, no explicit data protection obligations",
+        "2": "TERMINATION WEAK — only under exceptional circumstances at Service Provider sole discretion, no guaranteed termination rights for Client",
+        "3": "LIABILITY — Capped at total fees in preceding 12 months, no indirect/incidental/consequential",
+        "4": "GOVERNING LAW — Germany"
+      }
+    },
+    {
+      "filename": "contract_unlimited_liability.pdf",
+      "path": "uploads/synthetic_legal_db/persistent_contracts/contract_unlimited_liability.pdf",
+      "pages": {
+        "1": "Full GDPR (EU 2016/679) — encryption, access control, data subject rights",
+        "2": "TERMINATION — Either party, 15 days written notice, no cause required",
+        "3": "LIABILITY UNLIMITED — Service Provider assumes full and unlimited liability including direct, indirect, incidental, consequential",
+        "4": "GOVERNING LAW — Germany"
+      }
+    },
+    {
+      "filename": "contract_weak_termination.pdf",
+      "path": "uploads/synthetic_legal_db/persistent_contracts/contract_weak_termination.pdf",
+      "pages": {
+        "1": "Full GDPR (EU 2016/679) — encryption, access control, data subject rights",
+        "2": "TERMINATION WEAK — only under exceptional circumstances at Service Provider sole discretion, no guaranteed termination rights for Client",
+        "3": "LIABILITY — Capped at total fees in preceding 12 months, no indirect/incidental/consequential",
+        "4": "GOVERNING LAW — Germany"
+      }
+    }
+  ],
+
+  "temp_contracts": [
+    {
+      "filename": "temp_contract_1.pdf",
+      "path": "data/synthetic_legal_db/temp_uploads/temp_contract_1.pdf",
+      "pages": {
+        "1": "DATA USAGE only — no GDPR, no EU 2016/679, no explicit data protection obligations",
+        "2": "TERMINATION WEAK — only under exceptional circumstances at Service Provider sole discretion, no guaranteed termination rights for Client",
+        "3": "LIABILITY UNLIMITED — Service Provider assumes full and unlimited liability: direct, indirect, incidental, consequential"
+      },
+      "profile": "no_gdpr + weak_termination + unlimited_liability",
+      "most_similar_db_contract": "contract_missing_gdpr.pdf (pages 1+2) + contract_unlimited_liability.pdf (page 3)"
+    },
+    {
+      "filename": "temp_contract_2.pdf",
+      "path": "data/synthetic_legal_db/temp_uploads/temp_contract_2.pdf",
+      "pages": {
+        "1": "Full GDPR (EU 2016/679) — encryption, access control, data subject rights",
+        "2": "TERMINATION — Either party, 15 days written notice, no cause required",
+        "3": "LIABILITY — Capped at total fees in preceding 12 months, no indirect/incidental/consequential"
+      },
+      "profile": "full_gdpr + fair_termination + capped_liability",
+      "most_similar_db_contract": "contract_gdpr_strict.pdf (all pages)"
+    }
+  ],
+
+  "mode2_questions": [
+    {
+      "id": "M2Q01",
+      "question": "Which contract is missing a GDPR compliance clause?",
+      "expected_contracts": ["contract_missing_gdpr"],
+      "expected_keywords": ["missing_gdpr", "data usage", "no explicit", "missing"],
+      "relevant_chunks": [
+        {"source_file": "contract_missing_gdpr.pdf", "pages": [1]}
+      ],
+      "description": "find_missing: identify the one contract lacking GDPR. Relevant chunk is page 1 of contract_missing_gdpr."
+    },
+    {
+      "id": "M2Q02",
+      "question": "Which contract has unlimited liability?",
+      "expected_contracts": ["contract_unlimited_liability"],
+      "expected_keywords": ["unlimited_liability", "unlimited liability", "full and unlimited", "unlimited"],
+      "relevant_chunks": [
+        {"source_file": "contract_unlimited_liability.pdf", "pages": [3]}
+      ],
+      "description": "find_clause: identify the one contract with unlimited liability. Relevant chunk is page 3."
+    },
+    {
+      "id": "M2Q03",
+      "question": "Which contracts have a weak termination clause where the client has no guaranteed termination rights?",
+      "expected_contracts": ["contract_missing_gdpr", "contract_weak_termination"],
+      "expected_keywords": ["exceptional circumstances", "service provider", "no guaranteed", "discretion"],
+      "relevant_chunks": [
+        {"source_file": "contract_missing_gdpr.pdf", "pages": [2]},
+        {"source_file": "contract_weak_termination.pdf", "pages": [2]}
+      ],
+      "description": "find_missing: two contracts share weak termination. Both page 2s are relevant."
+    },
+    {
+      "id": "M2Q04",
+      "question": "How many days written notice is required to terminate the contract_gdpr_strict agreement?",
+      "expected_contracts": ["contract_gdpr_strict"],
+      "expected_keywords": ["15", "fifteen", "15 days"],
+      "relevant_chunks": [
+        {"source_file": "contract_gdpr_strict.pdf", "pages": [2]}
+      ],
+      "description": "find_clause: specific numeric value from termination clause. Relevant chunk is page 2."
+    },
+    {
+      "id": "M2Q05",
+      "question": "What data subject rights are mentioned in the GDPR compliance clause?",
+      "expected_contracts": ["contract_gdpr_strict", "contract_unlimited_liability", "contract_weak_termination"],
+      "expected_keywords": ["rectification", "erasure", "portability", "data portability", "access"],
+      "relevant_chunks": [
+        {"source_file": "contract_gdpr_strict.pdf", "pages": [1]},
+        {"source_file": "contract_unlimited_liability.pdf", "pages": [1]},
+        {"source_file": "contract_weak_termination.pdf", "pages": [1]}
+      ],
+      "description": "find_clause: GDPR rights appear in page 1 of the three contracts that have full GDPR."
+    },
+    {
+      "id": "M2Q06",
+      "question": "What is the governing law for all stored contracts?",
+      "expected_contracts": ["contract_gdpr_strict", "contract_missing_gdpr", "contract_unlimited_liability", "contract_weak_termination"],
+      "expected_keywords": ["germany", "german", "laws of germany"],
+      "relevant_chunks": [
+        {"source_file": "contract_gdpr_strict.pdf", "pages": [4]},
+        {"source_file": "contract_missing_gdpr.pdf", "pages": [4]},
+        {"source_file": "contract_unlimited_liability.pdf", "pages": [4]},
+        {"source_file": "contract_weak_termination.pdf", "pages": [4]}
+      ],
+      "description": "find_clause: governing law is page 4 of all contracts. Tests broad multi-doc retrieval."
+    },
+    {
+      "id": "M2Q07",
+      "question": "What is the liability cap in contracts that limit liability to 12 months of fees?",
+      "expected_contracts": ["contract_gdpr_strict", "contract_missing_gdpr", "contract_weak_termination"],
+      "expected_keywords": ["twelve (12) months", "12 months", "twelve months", "total fees"],
+      "relevant_chunks": [
+        {"source_file": "contract_gdpr_strict.pdf", "pages": [3]},
+        {"source_file": "contract_missing_gdpr.pdf", "pages": [3]},
+        {"source_file": "contract_weak_termination.pdf", "pages": [3]}
+      ],
+      "description": "find_clause: liability cap appears in page 3 of the 3 contracts with capped liability."
+    },
+    {
+      "id": "M2Q08",
+      "question": "Does the contract_missing_gdpr contract include any EU data protection obligations?",
+      "expected_contracts": ["contract_missing_gdpr"],
+      "expected_keywords": ["no explicit", "data usage", "operational", "no gdpr", "not"],
+      "relevant_chunks": [
+        {"source_file": "contract_missing_gdpr.pdf", "pages": [1]}
+      ],
+      "description": "find_missing: negative detection — confirm GDPR is absent in contract_missing_gdpr page 1."
+    },
+    {
+      "id": "M2Q09",
+      "question": "Which contracts allow either party to terminate with written notice without cause?",
+      "expected_contracts": ["contract_gdpr_strict", "contract_unlimited_liability"],
+      "expected_keywords": ["either party", "15 days", "fifteen", "written notice", "without cause"],
+      "relevant_chunks": [
+        {"source_file": "contract_gdpr_strict.pdf", "pages": [2]},
+        {"source_file": "contract_unlimited_liability.pdf", "pages": [2]}
+      ],
+      "description": "find_clause: balanced termination rights appear in page 2 of two contracts."
+    },
+    {
+      "id": "M2Q10",
+      "question": "In the contract with unlimited liability, what specific types of damages is the Service Provider liable for?",
+      "expected_contracts": ["contract_unlimited_liability"],
+      "expected_keywords": ["direct", "indirect", "incidental", "consequential", "unlimited"],
+      "relevant_chunks": [
+        {"source_file": "contract_unlimited_liability.pdf", "pages": [3]}
+      ],
+      "description": "find_clause: damage types from the unlimited liability clause on page 3."
+    }
+  ],
+
+  "mode1_questions": [
+    {
+      "id": "M1Q01",
+      "upload_file": "temp_contract_1.pdf",
+      "question": "Is this contract GDPR compliant?",
+      "expected_keywords": ["no", "not", "no explicit", "data usage", "missing", "does not"],
+      "expected_absent_keywords": ["gdpr compliant", "complies with gdpr", "2016/679"],
+      "description": "Mode 1 single-doc: temp_contract_1 has no GDPR. Answer must reflect absence."
+    },
+    {
+      "id": "M1Q02",
+      "upload_file": "temp_contract_1.pdf",
+      "question": "What does the liability clause say? Is the liability limited or unlimited?",
+      "expected_keywords": ["unlimited", "full and unlimited", "direct", "indirect", "incidental", "consequential"],
+      "expected_absent_keywords": ["capped", "limited", "12 months", "maximum"],
+      "description": "Mode 1 single-doc: temp_contract_1 has unlimited liability. Must identify this."
+    },
+    {
+      "id": "M1Q03",
+      "upload_file": "temp_contract_1.pdf",
+      "question": "Does the client have guaranteed termination rights in this contract?",
+      "expected_keywords": ["no", "not", "exceptional", "discretion", "service provider", "no guaranteed"],
+      "expected_absent_keywords": ["yes", "either party", "written notice"],
+      "description": "Mode 1 single-doc: temp_contract_1 has weak termination — client has no guaranteed rights."
+    },
+    {
+      "id": "M1Q04",
+      "upload_file": "temp_contract_2.pdf",
+      "question": "Does this contract comply with GDPR?",
+      "expected_keywords": ["yes", "gdpr", "2016/679", "compliant", "complies", "data protection"],
+      "expected_absent_keywords": ["not compliant", "missing", "no gdpr", "no explicit"],
+      "description": "Mode 1 single-doc: temp_contract_2 has full GDPR. Answer must confirm compliance."
+    },
+    {
+      "id": "M1Q05",
+      "upload_file": "temp_contract_2.pdf",
+      "question": "How many days notice is required to terminate this contract?",
+      "expected_keywords": ["15", "fifteen", "fifteen (15)", "15 days"],
+      "expected_absent_keywords": ["exceptional", "discretion", "no guaranteed"],
+      "description": "Mode 1 single-doc: temp_contract_2 has 15-day termination notice."
+    }
+  ],
+
+  "mode3_questions": [
+    {
+      "id": "M3Q01",
+      "upload_file": "temp_contract_1.pdf",
+      "question": "How does the data protection clause in this uploaded contract compare to the contracts in the database?",
+      "expected_keywords": ["missing_gdpr", "no gdpr", "no explicit", "data usage", "unlike", "similar", "gdpr_strict", "missing"],
+      "expected_comparison_points": ["temp_contract_1 lacks GDPR", "database has contracts with full GDPR", "contract_missing_gdpr is similar"],
+      "description": "Mode 3 compare: temp_contract_1 (no GDPR) vs DB. Must note missing_gdpr is similar, others differ."
+    },
+    {
+      "id": "M3Q02",
+      "upload_file": "temp_contract_1.pdf",
+      "question": "Which database contracts have a similar liability clause to this uploaded contract?",
+      "expected_keywords": ["unlimited", "unlimited_liability", "similar", "same", "full and unlimited"],
+      "expected_comparison_points": ["contract_unlimited_liability matches", "other contracts are capped"],
+      "description": "Mode 3 compare: temp_contract_1 has unlimited liability — only contract_unlimited_liability matches."
+    },
+    {
+      "id": "M3Q03",
+      "upload_file": "temp_contract_2.pdf",
+      "question": "How does the termination clause in this uploaded contract compare to the database contracts?",
+      "expected_keywords": ["15 days", "fifteen", "either party", "similar", "gdpr_strict", "unlimited_liability", "weak"],
+      "expected_comparison_points": ["similar to contract_gdpr_strict and contract_unlimited_liability", "stronger than weak termination contracts"],
+      "description": "Mode 3 compare: temp_contract_2 has 15-day termination — similar to gdpr_strict and unlimited_liability."
+    },
+    {
+      "id": "M3Q04",
+      "upload_file": "temp_contract_2.pdf",
+      "question": "How does the GDPR compliance in this uploaded contract compare to the database? Which stored contracts have similar data protection?",
+      "expected_keywords": ["gdpr", "similar", "gdpr_strict", "unlike", "missing_gdpr", "compliant"],
+      "expected_comparison_points": ["similar to gdpr_strict, unlimited_liability, weak_termination", "contract_missing_gdpr lacks GDPR"],
+      "description": "Mode 3 compare: temp_contract_2 has full GDPR — similar to 3 of 4 DB contracts."
+    }
+  ]
+}

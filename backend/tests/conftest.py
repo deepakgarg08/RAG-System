@@ -47,15 +47,19 @@ def mock_openai_embeddings(monkeypatch):
 
     Name kept as mock_openai_embeddings for backward compatibility with all
     existing test signatures — the underlying model is now bge-m3 (local).
+
+    The model singleton lives in app.state (shared across embeddings.py,
+    hybrid_retriever.py, and any other module using EmbeddingService).
     """
+    import app.state as state_module
     import app.rag.embeddings as emb_module
 
     mock_model = _make_mock_st_model()
-    monkeypatch.setattr(emb_module, "_local_model", mock_model)
-    monkeypatch.setattr(emb_module, "_service", None)  # reset singleton
-
-    with patch("app.rag.embeddings.SentenceTransformer", return_value=mock_model):
-        yield mock_model
+    # Inject into the shared state singleton so _get_local_model() short-circuits
+    monkeypatch.setattr(state_module, "embedding_model", mock_model)
+    monkeypatch.setattr(state_module, "embedding_service", None)  # reset service
+    monkeypatch.setattr(emb_module, "_service", None)  # reset module-level cache
+    yield mock_model
 
 
 @pytest.fixture
@@ -76,7 +80,7 @@ def mock_openai_chat(monkeypatch):
         return_value=fake_response
     )
 
-    with patch("app.rag.agent.AsyncOpenAI", return_value=mock_client):
+    with patch("app.rag.llm_client.AsyncOpenAI", return_value=mock_client):
         yield mock_client
 
 
@@ -91,11 +95,14 @@ def temp_chroma_db(tmp_path, monkeypatch):
     Uses monkeypatch.setattr on the shared settings singleton so every module
     that already imported `settings` (e.g. chroma_loader, retriever) picks up
     the temp path without needing a module reload.
+    Also isolates the ingestion registry so tests don't share state.
     """
     from app.config import settings
 
     chroma_path = str(tmp_path / "chroma")
+    registry_path = str(tmp_path / "ingestion_registry.json")
     monkeypatch.setattr(settings, "chroma_persist_path", chroma_path)
+    monkeypatch.setattr(settings, "registry_path", registry_path)
     yield chroma_path
 
 
@@ -226,21 +233,19 @@ def mock_openai_embedding(monkeypatch):
     via EmbeddingService). Resets the EmbeddingService singleton so every
     test gets a fresh mock client.
     """
-    import app.rag.embeddings as emb_module
-
-    # Reset singleton so new EmbeddingService() picks up the mock client
-    monkeypatch.setattr(emb_module, "_service", None)
-
+    import app.state as state_module
     import app.rag.embeddings as emb_module
 
     fake_vector = [1.0 / 1024] * 1024
     mock_model = _make_mock_st_model()
 
-    monkeypatch.setattr(emb_module, "_local_model", mock_model)
+    monkeypatch.setattr(state_module, "embedding_model", mock_model)
+    monkeypatch.setattr(state_module, "embedding_service", None)
     monkeypatch.setattr(emb_module, "_service", None)
 
-    with patch("app.rag.embeddings.SentenceTransformer", return_value=mock_model), \
-         patch("app.etl.loaders.chroma_loader.get_embeddings",
+    # SentenceTransformer is a local import inside _get_local_model() — cannot be
+    # patched at module level. Patching _local_model is sufficient.
+    with patch("app.etl.loaders.chroma_loader.get_embeddings",
                side_effect=lambda texts: [fake_vector] * len(texts)):
         yield mock_model
 
@@ -259,8 +264,10 @@ def temp_chroma_dir(tmp_path, monkeypatch):
     upload_path = str(tmp_path / "uploads")
     (tmp_path / "uploads").mkdir(parents=True, exist_ok=True)
 
+    registry_path = str(tmp_path / "ingestion_registry.json")
     monkeypatch.setattr(settings, "chroma_persist_path", chroma_path)
     monkeypatch.setattr(settings, "upload_dir", upload_path)
+    monkeypatch.setattr(settings, "registry_path", registry_path)
     yield chroma_path
 
 

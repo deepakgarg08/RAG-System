@@ -28,6 +28,10 @@ pymupdf==1.27.2.2
 Pillow==12.1.1
 pytesseract==0.3.13
 langdetect==1.0.9
+pyspellchecker==0.8.2      # OCR error correction in text_cleaner (EN + DE dictionaries)
+
+# Retrieval improvements
+rank-bm25==0.2.2            # BM25 keyword index for hybrid retrieval alongside ChromaDB
 
 # API utilities
 python-dotenv==1.2.2

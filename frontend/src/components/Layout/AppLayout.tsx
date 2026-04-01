@@ -12,9 +12,11 @@ interface AppLayoutProps {
   queryPanel: React.ReactNode;
   health: HealthResponse | null;
   connected: boolean;
+  /** True after the first health check has resolved (success or failure). */
+  connectionChecked: boolean;
 }
 
-export default function AppLayout({ uploadPanel, queryPanel, health, connected }: AppLayoutProps): React.ReactElement {
+export default function AppLayout({ uploadPanel, queryPanel, health, connected, connectionChecked }: AppLayoutProps): React.ReactElement {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'var(--color-gray-50)' }}>
@@ -51,12 +53,17 @@ export default function AppLayout({ uploadPanel, queryPanel, health, connected }
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
           <StatusDot connected={connected} />
-          {connected && health ? (
+          {!connectionChecked ? (
+            // Initial state — first health check still in flight
+            <span style={{ opacity: 0.6 }}>Connecting…</span>
+          ) : connected && health ? (
+            // Connected — show live document count
             <span style={{ opacity: 0.85 }}>
               {health.document_count} document{health.document_count !== 1 ? 's' : ''} indexed
             </span>
           ) : (
-            <span style={{ opacity: 0.6 }}>Connecting…</span>
+            // Checked but backend unreachable
+            <span style={{ opacity: 0.6 }}>Disconnected</span>
           )}
         </div>
       </header>

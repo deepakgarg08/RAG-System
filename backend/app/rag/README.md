@@ -7,20 +7,44 @@ references. It never invents information not present in the contracts.
 ## Components
 
 ### `embeddings.py`
-Converts text strings to vectors using **OpenAI text-embedding-3-large** (3072 dimensions).
+Converts text strings to vectors using **BAAI/bge-m3** locally (1024 dimensions, demo)
+or **Azure OpenAI text-embedding-3-large** (3072 dimensions, production).
 Used both at ingest time (to embed chunks) and query time (to embed the question).
-Uses the larger model for better paraphrase/synonym matching — critical when users phrase
-queries differently from the document text (e.g. "favourite color" vs "preferred color").
 
 ### `retriever.py`
-Queries ChromaDB for the top-8 most semantically similar chunks to the embedded question.
-Returns chunks with full metadata including `page_number`, `chunk_index`, `total_chunks`,
-and `similarity_score`. Minimum similarity threshold: `0.15` (lowered from `0.30` to
-prevent silently dropping relevant chunks with paraphrased queries).
-Top-K is configurable via `TOP_K_RESULTS` in config.
+Pure dense vector retrieval from ChromaDB. Minimum similarity threshold: `0.40`.
+Used internally by `hybrid_retriever.py`. Not called directly by the agent.
+
+### `hybrid_retriever.py`
+**Primary retriever used by the agent.** Combines two retrieval methods via Reciprocal Rank Fusion:
+- **Dense (vector)**: semantic similarity via bge-m3 embeddings — handles paraphrased queries
+- **BM25 (keyword)**: exact term matching over an in-memory index — handles company names, clause numbers, legal abbreviations like `§12`
+
+The BM25 index is built lazily from ChromaDB chunk texts and cached until new documents are ingested.
+RRF merges the two ranked lists without requiring comparable score scales.
+**Production swap**: Azure AI Search runs BM25 + vector natively in one API call — this file is replaced by the Azure retriever.
+
+### `reranker.py`
+Two post-retrieval quality filters applied after hybrid retrieval:
+- **`rerank()`**: cross-encoder (`cross-encoder/ms-marco-MiniLM-L-6-v2`) rescores top candidates by reading query + chunk *together* — more accurate than cosine similarity. Falls back gracefully if the model fails to load.
+- **`mmr_filter()`**: Maximal Marginal Relevance removes near-duplicate chunks so GPT-4o sees diverse, non-redundant context. Uses Jaccard token overlap to measure inter-chunk similarity.
 
 ### `agent.py`
 LangGraph agent with 4 nodes that process a query as a state machine.
+For `find_missing` queries (MODE 3), the reasoner branches to use document-level
+grouped context so the LLM can identify which contracts contain or lack a clause.
+
+### `document_grouper.py`
+Groups a flat list of retriever chunks by `source_file`. Used by:
+- `agent.py` for MODE 3 (find_missing cross-DB queries)
+- `document_analyzer.py` for MODE 2 (compare uploaded doc with DB)
+
+### `document_analyzer.py`
+Temporary document analysis — uploaded files are processed in-memory and never
+stored in the vector database. Provides:
+- `analyze_single_document()` — MODE 1: Q&A on the uploaded doc only
+- `check_compliance()` — MODE 1 variant: evaluate against guidelines
+- `compare_with_database()` — MODE 2: compare uploaded doc vs DB contracts
 
 ## Why LangGraph Over Plain LangChain?
 
@@ -49,12 +73,15 @@ User question
   - "update_name"       — "What should change if the company name changes?"
      ↓
 [retriever]
-  Embeds the question → queries ChromaDB → returns top-5 chunks with metadata
+  1. HybridRetriever fetches top_k*2 candidates (BM25 + dense, RRF merged)
+  2. CrossEncoder reranker rescores candidates by reading query+chunk together
+  3. MMR filter removes near-duplicate chunks → final top_k diverse, relevant chunks
      ↓
 [reasoner]
-  GPT-4o generates answer using ONLY the retrieved chunks as context
+  GPT-4o generates answer using ONLY the retrieved chunks as context.
   System prompt enforces: "If the answer is not in the provided chunks,
   say 'Not found in the provided contracts.' Do not invent information."
+  For find_missing queries: chunks are grouped by document for per-contract verdicts.
      ↓
 [formatter]
   Structures the final response:

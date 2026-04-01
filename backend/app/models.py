@@ -21,7 +21,13 @@ class QueryRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class IngestResponse(BaseModel):
-    """Response returned after a contract file is ingested via the ETL pipeline."""
+    """Response returned after a contract file is ingested via the ETL pipeline.
+
+    status values:
+      "success"  — file was extracted, chunked, and stored.
+      "skipped"  — file was already ingested (checksum match); no work done.
+      "failed"   — pipeline error; see 'error' field for details.
+    """
 
     filename: str
     file_type: str
@@ -29,6 +35,7 @@ class IngestResponse(BaseModel):
     chunks_created: int
     status: str
     error: str | None = None
+    reason: str | None = None    # set to "already_ingested" when status="skipped"
 
 
 class HealthResponse(BaseModel):
@@ -38,3 +45,16 @@ class HealthResponse(BaseModel):
     document_count: int
     mode: str       # "demo" or "production"
     app_env: str
+
+
+class ComplianceResult(BaseModel):
+    """Response returned by the POST /api/compliance endpoint.
+
+    compliant:  True if no violations were found.
+    violations: List of specific guideline violations identified.
+    explanation: 2-4 sentence plain-language explanation of the assessment.
+    """
+
+    compliant: bool
+    violations: list[str]
+    explanation: str

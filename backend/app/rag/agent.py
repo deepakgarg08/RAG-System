@@ -9,29 +9,27 @@ from typing import TypedDict, Annotated, AsyncGenerator
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
-from openai import AsyncOpenAI
 
 from app.config import settings
-from app.rag.retriever import ContractRetriever
+from app.rag.hybrid_retriever import HybridRetriever
+from app.rag.reranker import rerank, mmr_filter
+from app.rag.llm_client import _get_llm_client, _get_model_name
+from app.rag.document_analyzer import (
+    build_missing_clause_context,
+    get_missing_clause_system_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
 # ============================================================
 # DEMO MODE: OpenAI API — direct API key, simple setup
 # PRODUCTION SWAP → Azure OpenAI (AWS: Bedrock):
-#   Change client initialisation below:
-#   FROM: AsyncOpenAI(api_key=settings.openai_api_key)
-#   TO:   AsyncAzureOpenAI(
-#             api_key=settings.azure_openai_api_key,
-#             azure_endpoint=settings.azure_openai_endpoint,
-#             api_version=settings.azure_openai_api_version,
-#         )
-#   Model name stays the same: "gpt-4o"
-#   Why Azure OpenAI for production: data never leaves Microsoft tenant,
+#   Set APP_ENV=production in .env — no code changes required.
+#   _get_llm_client() and _get_model_name() live in llm_client.py
+#   and branch automatically.
+#   Why Azure OpenAI: data never leaves Microsoft tenant,
 #   required for legal document compliance at Riverty
 # ============================================================
-
-_LLM_MODEL = "gpt-4o"
 
 _ROUTER_PROMPT = """\
 Classify this legal contract query into exactly one category:
@@ -51,8 +49,65 @@ If the information is not in the provided excerpts, say exactly:
 "This information was not found in the uploaded contracts."
 Never guess or use outside knowledge.
 
+Write in clear, natural prose. Insert 1-2 line breaks between paragraphs.
+Each distinct idea must be its own paragraph. Never write fragmented or chunked text.
+
+STRICTLY FORBIDDEN IN YOUR ANSWER:
+- chunk_index, total_chunks, char_count
+- raw metadata or internal IDs
+- relevance scores inline with text
+- Any mention of "chunk" or "embedding"
+
 Contract excerpts:
 {context}"""
+
+# Documents the output contract for the formatter node.
+# The formatter itself is pure Python — no extra LLM call needed.
+_FORMATTER_SYSTEM_PROMPT = """
+You are responsible for transforming retrieved RAG outputs into a clean,
+user-friendly response suitable for legal and business users.
+
+ANSWER FORMATTING RULES:
+- Combine all retrieved chunks into a single coherent answer
+- Remove duplicate or overlapping content
+- Write in clear, natural prose
+- Insert 1-2 line breaks between paragraphs
+- Each distinct idea must be its own paragraph
+- Never write fragmented or chunked text
+- If the answer was not found in the documents, say exactly:
+  "This information was not found in the uploaded contracts."
+
+STRICTLY FORBIDDEN IN OUTPUT:
+- chunk_index, total_chunks, char_count
+- raw metadata dictionaries
+- text previews or internal IDs
+- relevance scores shown inline with text
+- Any mention of "chunk" or "embedding"
+
+SOURCE DISPLAY FORMAT:
+After the answer, list sources using this exact format:
+
+Sources:
+[●] filename.pdf (Page X)
+
+Rules for sources:
+- One line per unique file
+- If multiple chunks came from same file, merge pages: (Page 1, 3, 5)
+- Use colored dot based on highest relevance score from that file:
+    Green dot  → relevance ≥ 65%  → use unicode ● with note "high relevance"
+    Amber dot  → relevance 50-64% → use unicode ● with note "medium relevance"
+    Grey dot   → relevance < 50%  → use unicode ● with note "low relevance"
+- Each source must be a clickable link in this format:
+    /files/{filename}#page={page_number}
+- Do NOT show raw relevance percentages unless they clearly add value
+- Do NOT show chunk numbers
+
+OUTPUT STRUCTURE — always follow this exactly:
+{answer paragraphs}
+
+Sources:
+[●] filename.pdf (Page X)
+"""
 
 
 class AgentState(TypedDict):
@@ -96,9 +151,9 @@ async def query_router(state: AgentState) -> dict:
     Returns:
         Partial state update with query_type set.
     """
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = _get_llm_client()
     response = await client.chat.completions.create(
-        model=_LLM_MODEL,
+        model=_get_model_name(),
         messages=[
             {
                 "role": "user",
@@ -114,7 +169,12 @@ async def query_router(state: AgentState) -> dict:
 
 
 def retriever_node(state: AgentState) -> dict:
-    """Retrieve semantically relevant contract chunks for the question.
+    """Retrieve, rerank, and diversify contract chunks for the question.
+
+    Pipeline:
+    1. HybridRetriever fetches top_k*2 candidates via BM25 + dense (RRF merged).
+    2. CrossEncoder reranker rescores the candidates more accurately than cosine sim.
+    3. MMR filter selects the final top_k chunks, removing near-duplicate clauses.
 
     Args:
         state: Current agent state containing the user question.
@@ -122,25 +182,44 @@ def retriever_node(state: AgentState) -> dict:
     Returns:
         Partial state update with retrieved_chunks (and answer if none found).
     """
-    retriever = ContractRetriever()
-    chunks = retriever.retrieve(
+    retriever = HybridRetriever()
+    # Fetch double the final count so reranker + MMR have candidates to work with
+    candidates = retriever.retrieve(
         query=state["question"],
-        top_k=settings.top_k_results,
+        top_k=settings.top_k_results * 2,
     )
-    if not chunks:
+    if not candidates:
         logger.warning("retriever_node: no chunks found for query '%s'", state["question"])
         return {
             "retrieved_chunks": [],
             "answer": "No relevant contracts found.",
         }
-    logger.info("retriever_node: retrieved %d chunks", len(chunks))
-    return {"retrieved_chunks": chunks}
+
+    # Rerank with cross-encoder for higher relevance accuracy
+    reranked = rerank(state["question"], candidates, top_k=settings.top_k_results)
+
+    # MMR filter to remove redundant near-duplicate chunks
+    final_chunks = mmr_filter(reranked, top_k=settings.top_k_results)
+
+    logger.info(
+        "retriever_node: %d candidates → %d reranked → %d after MMR",
+        len(candidates),
+        len(reranked),
+        len(final_chunks),
+    )
+    return {"retrieved_chunks": final_chunks}
 
 
 async def reasoner(state: AgentState) -> dict:
     """Generate a grounded answer using GPT-4o and the retrieved chunks.
 
     Only uses retrieved contract excerpts — never invents information.
+
+    For MODE 3 queries (find_missing): chunks are grouped by source document
+    so the LLM can reason across all contracts and identify which ones contain
+    or lack the requested clause.
+
+    For all other query types: standard chunk-level context is used.
 
     Args:
         state: Current agent state with question and retrieved_chunks.
@@ -152,14 +231,24 @@ async def reasoner(state: AgentState) -> dict:
     if state.get("answer"):
         return {}
 
-    context = _build_context(state["retrieved_chunks"])
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = _get_llm_client()
+    query_type = state.get("query_type", "")
+
+    # MODE 3 — find_missing: group chunks by document for cross-DB clause analysis
+    if query_type == "find_missing":
+        grouped_context = build_missing_clause_context(state["retrieved_chunks"])
+        system_content = get_missing_clause_system_prompt(grouped_context)
+        logger.info("reasoner: using document-level grouping for find_missing query")
+    else:
+        context = _build_context(state["retrieved_chunks"])
+        system_content = _REASONER_SYSTEM.format(context=context)
+
     response = await client.chat.completions.create(
-        model=_LLM_MODEL,
+        model=_get_model_name(),
         messages=[
             {
                 "role": "system",
-                "content": _REASONER_SYSTEM.format(context=context),
+                "content": system_content,
             },
             {
                 "role": "user",
@@ -179,17 +268,39 @@ async def reasoner(state: AgentState) -> dict:
     return {"answer": answer}
 
 
-def formatter(state: AgentState) -> dict:
-    """Append detailed source citations to the answer and collect unique source names.
+def _relevance_dot(score: float) -> str:
+    """Return a relevance dot indicator string based on similarity score.
 
-    Each source line includes file name, page number, chunk position within the
-    document, and similarity score — giving legal reviewers a precise reference
-    to locate the exact passage in the original document.
+    Args:
+        score: Cosine similarity score in [0, 1].
+
+    Returns:
+        Unicode dot with relevance label:
+          ● high relevance   (score ≥ 0.65)
+          ● medium relevance (score 0.50–0.64)
+          ● low relevance    (score < 0.50)
+    """
+    if score >= 0.65:
+        return "● high relevance"
+    if score >= 0.50:
+        return "● medium relevance"
+    return "● low relevance"
+
+
+def formatter(state: AgentState) -> dict:
+    """Build clean source citations grouped by file and append to the answer.
+
+    Groups retrieved chunks by source_file, merges page numbers per file,
+    tracks the highest relevance score per file, and assigns a coloured dot
+    indicator. Builds clickable /files/{filename}#page={N} links.
+
+    No chunk-level metadata (chunk_index, char_count, etc.) appears in output.
 
     Format:
-        **Sources:**
-        • contract.pdf — page 3, chunk 4/21 (relevance: 0.87)
-        • contract.pdf — page 5, chunk 7/21 (relevance: 0.74)
+        {answer prose}
+
+        Sources:
+        ● high relevance  contract.pdf (Page 1, 3)  /files/contract.pdf#page=1
 
     Args:
         state: Current agent state with answer and retrieved_chunks.
@@ -202,40 +313,52 @@ def formatter(state: AgentState) -> dict:
 
     if not chunks or not answer or answer == "No relevant contracts found.":
         unique_sources = list(
-            dict.fromkeys(c["source_file"] for c in chunks if c.get("source_file"))
+            dict.fromkeys(c.get("source_file", "") for c in chunks if c.get("source_file"))
         )
-        logger.info("formatter: sources=%r", unique_sources)
+        logger.info("formatter: no chunks or terminal answer — sources=%r", unique_sources)
         return {"answer": answer, "sources": unique_sources}
 
-    # Build one attribution line per retrieved chunk (deduplicated by chunk_index)
-    seen: set[str] = set()
-    source_lines: list[str] = []
-    unique_sources: list[str] = []
-
+    # --- Group chunks by source_file ---
+    # file_data maps filename → {"pages": set[int], "best_score": float}
+    file_data: dict[str, dict] = {}
     for c in chunks:
         source_file = c.get("source_file", "unknown")
-        chunk_index = c.get("chunk_index", 0)
-        total_chunks = c.get("total_chunks", 0)
         page_number = c.get("page_number", 1)
         score = c.get("similarity_score", 0.0)
 
-        dedup_key = f"{source_file}:{chunk_index}"
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
+        if source_file not in file_data:
+            file_data[source_file] = {"pages": set(), "best_score": 0.0}
 
-        chunk_ref = f"{chunk_index + 1}/{total_chunks}" if total_chunks else str(chunk_index + 1)
-        source_lines.append(
-            f"  • {source_file} — page {page_number}, chunk {chunk_ref} (relevance: {score:.2f})"
-        )
+        file_data[source_file]["pages"].add(page_number)
+        if score > file_data[source_file]["best_score"]:
+            file_data[source_file]["best_score"] = score
 
-        if source_file not in unique_sources:
-            unique_sources.append(source_file)
+    # --- Build source lines ---
+    source_lines: list[str] = []
+    unique_sources: list[str] = list(file_data.keys())
+
+    for filename, data in file_data.items():
+        best_score = data["best_score"]
+        pages = sorted(data["pages"])
+        dot = _relevance_dot(best_score)
+
+        # Page display: single page or comma-separated list
+        page_label = ", ".join(str(p) for p in pages)
+        page_display = f"Page {page_label}" if len(pages) == 1 else f"Pages {page_label}"
+
+        # Clickable link anchored to first (lowest) page
+        first_page = pages[0]
+        link = f"/files/{filename}#page={first_page}"
+
+        source_lines.append(f"  {dot}  [{filename} ({page_display})]({link})")
 
     sources_block = "\n".join(source_lines)
-    answer = f"{answer}\n\n**Sources:**\n{sources_block}"
+    answer = f"{answer}\n\nSources:\n{sources_block}"
 
-    logger.info("formatter: %d source references from %d files", len(source_lines), len(unique_sources))
+    logger.info(
+        "formatter: %d source file(s) referenced",
+        len(unique_sources),
+    )
     return {"answer": answer, "sources": unique_sources}
 
 

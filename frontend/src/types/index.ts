@@ -35,3 +35,13 @@ export interface StreamingState {
   isDone: boolean;
   error: string | null;
 }
+
+/** The three analysis modes exposed in the UI. */
+export type AnalysisMode = 'search' | 'analyze' | 'compare';
+
+/** Mirrors ComplianceResult from the FastAPI backend. */
+export interface ComplianceResult {
+  compliant: boolean;
+  violations: string[];
+  explanation: string;
+}

@@ -6,7 +6,7 @@
 
 import type { HealthResponse, IngestResponse } from '../types';
 
-export const BASE_URL = 'http://localhost:8000';
+export const BASE_URL = import.meta.env.VITE_SERVER_BASE_URL ?? 'http://localhost:8000';
 
 export async function uploadContract(file: File): Promise<IngestResponse> {
   const formData = new FormData();
@@ -33,4 +33,32 @@ export async function getSuggestedQuestions(): Promise<string[]> {
   if (!response.ok) return [];
   const data = (await response.json()) as { questions: string[] };
   return data.questions ?? [];
+}
+
+/**
+ * POST /api/compliance — Evaluate a contract against compliance guidelines.
+ * The file is processed in-memory and is NEVER stored in the database.
+ *
+ * @param file       The contract file (PDF / JPG / PNG).
+ * @param guidelines Optional custom guidelines. Defaults to Riverty's standard checklist.
+ */
+export async function checkComplianceApi(
+  file: File,
+  guidelines?: string,
+): Promise<{ compliant: boolean; violations: string[]; explanation: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (guidelines) formData.append('guidelines', guidelines);
+
+  const response = await fetch(`${BASE_URL}/api/compliance`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error((err as { detail?: string }).detail ?? `Compliance check failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<{ compliant: boolean; violations: string[]; explanation: string }>;
 }

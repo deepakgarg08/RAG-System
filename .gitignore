@@ -17,6 +17,8 @@ uploads/
 .pytest_cache/
 htmlcov/
 .coverage
+backend/rag_test_results.json
+backend/tests/eval/eval_results_*.json
 
 # Runtime logs (kept in logs/ folder, not committed)
 backend/logs/*.log
@@ -27,3 +29,5 @@ dist/
 
 # Local session notes (not part of the codebase)
 docs/info/
+data/
+Software Engineer (RAG) Case Study_285144.pdf 

@@ -8,7 +8,8 @@ import time
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.etl.pipeline import IngestionPipeline
+from app.etl.compliance_storage import store_contract_in_api
+from app.etl.pipeline import IngestionPipeline, ModelMismatchError
 from app.models import IngestResponse
 from app.storage.local_storage import LocalStorage
 
@@ -19,6 +20,60 @@ router = APIRouter()
 # Validated against EXTRACTOR_REGISTRY in pipeline.py
 _ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 
+import os
+from pathlib import Path
+from typing import List
+
+def get_all_supported_files(base_dir: str, allowed_extensions: set) -> List[str]:
+    """Recursively collect all supported files from base_dir."""
+    files = []
+    for root, _, filenames in os.walk(base_dir):
+        for name in filenames:
+            ext = Path(name).suffix.lower()
+            if ext in allowed_extensions:
+                files.append(os.path.join(root, name))
+    return files
+
+@router.post("/ingest-all")
+def ingest_all_documents() -> dict:
+    """Scan uploads/ directory recursively and ingest all supported files."""
+
+    base_dir = "uploads"
+    start = time.perf_counter()
+
+    try:
+        pipeline = IngestionPipeline()
+    except ModelMismatchError as exc:
+        logger.error("ingest_all: model mismatch — %s", exc)
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    files = get_all_supported_files(base_dir, _ALLOWED_EXTENSIONS)
+
+    if not files:
+        return {"status": "no_files_found", "processed": 0}
+
+    results = []
+    for path in files:
+        try:
+            result = pipeline.ingest(path)
+            results.append(result)
+        except Exception as e:
+            logger.exception("Failed to ingest %s", path)
+            results.append({
+                "filename": path,
+                "status": "failed",
+                "error": str(e)
+            })
+
+    elapsed = time.perf_counter() - start
+
+    return {
+        "status": "completed",
+        "total_files": len(files),
+        "processed": len(results),
+        "elapsed_seconds": round(elapsed, 2),
+        "results": results,
+    }
 
 @router.post("/ingest", response_model=IngestResponse)
 async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
@@ -61,8 +116,21 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
     saved_path = storage.save(file_bytes, filename)
     logger.info("ingest_document: saved to '%s'", saved_path)
 
+    # --- Compliance archival (fire-and-forget) ---
+    # Sends a copy to the external compliance storage API if configured.
+    # Failure is logged but NEVER blocks ingestion.
+    store_contract_in_api(filename, file_bytes)
+
     # --- Run ETL pipeline ---
-    pipeline = IngestionPipeline()
+    # ModelMismatchError is raised at construction time if the registry was
+    # built with a different embedding model. Return 409 so the client knows
+    # the database must be cleared and rebuilt before ingestion can continue.
+    try:
+        pipeline = IngestionPipeline()
+    except ModelMismatchError as exc:
+        logger.error("ingest_document: model mismatch — %s", exc)
+        raise HTTPException(status_code=409, detail=str(exc))
+
     result = pipeline.ingest(saved_path)
 
     elapsed = time.perf_counter() - start
@@ -74,6 +142,9 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
         elapsed,
     )
 
+    if result["status"] == "skipped":
+        logger.info("ingest_document: '%s' already ingested, returning 200 skipped", filename)
+
     return IngestResponse(
         filename=result["filename"],
         file_type=result["file_type"],
@@ -81,4 +152,5 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
         chunks_created=result["chunks_created"],
         status=result["status"],
         error=result.get("error"),
+        reason=result.get("reason"),
     )
