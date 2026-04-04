@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riverty Contract Review — AI-Powered Legal Analysis</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/black.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/highlight/monokai.min.css">
+<style>
+  :root {
+    --riverty-blue: #1a56b0;
+    --riverty-light: #4d9de0;
+    --riverty-dark: #0a2540;
+    --riverty-accent: #00d4aa;
+    --riverty-warn: #f59e0b;
+    --riverty-red: #ef4444;
+    --riverty-green: #10b981;
+    --card-bg: rgba(255,255,255,0.06);
+    --card-border: rgba(255,255,255,0.12);
+  }
+
+  .reveal-viewport { background: #050d1a; }
+  .reveal .slides section { height: 100%; }
+
+  .reveal h1 { font-size: 2.2em; font-weight: 800; color: #fff; letter-spacing: -1px; line-height: 1.15; }
+  .reveal h2 { font-size: 1.7em; font-weight: 700; color: var(--riverty-light); margin-bottom: 0.5em; }
+  .reveal h3 { font-size: 1.1em; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
+  .reveal p, .reveal li { font-size: 0.82em; color: #cbd5e1; line-height: 1.7; }
+  .reveal strong { color: #fff; }
+
+  .tag {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.6em; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; vertical-align: middle;
+  }
+  .tag-blue  { background: rgba(29,86,176,0.3); border: 1px solid var(--riverty-blue); color: var(--riverty-light); }
+  .tag-green { background: rgba(16,185,129,0.2); border: 1px solid var(--riverty-green); color: var(--riverty-green); }
+  .tag-warn  { background: rgba(245,158,11,0.2); border: 1px solid var(--riverty-warn); color: var(--riverty-warn); }
+  .tag-accent{ background: rgba(0,212,170,0.15); border: 1px solid var(--riverty-accent); color: var(--riverty-accent); }
+  .tag-red   { background: rgba(239,68,68,0.2); border: 1px solid var(--riverty-red); color: var(--riverty-red); }
+
+  .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px 22px; backdrop-filter: blur(10px); }
+  .card-grid { display: grid; gap: 14px; }
+  .card-grid-2 { grid-template-columns: 1fr 1fr; }
+  .card-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .card-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+  .mode-card { border-radius: 14px; padding: 20px; text-align: left; position: relative; overflow: hidden; }
+  .mode-1 { background: linear-gradient(135deg, rgba(29,86,176,0.25), rgba(77,157,224,0.1)); border: 1px solid rgba(29,86,176,0.5); }
+  .mode-2 { background: linear-gradient(135deg, rgba(0,212,170,0.15), rgba(0,212,170,0.05)); border: 1px solid rgba(0,212,170,0.4); }
+  .mode-3 { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05)); border: 1px solid rgba(245,158,11,0.4); }
+  .mode-card .mode-num { font-size: 2.5em; font-weight: 900; opacity: 0.12; position: absolute; top: 6px; right: 14px; line-height: 1; }
+  .mode-card h4 { font-size: 0.88em; font-weight: 700; color: #fff; margin: 0 0 6px 0; }
+  .mode-card p  { font-size: 0.66em; color: #94a3b8; margin: 0; line-height: 1.5; }
+  .mode-card .route { font-size: 0.6em; font-family: monospace; color: var(--riverty-accent); margin-top: 8px; display: block; }
+
+  .tech-table { width: 100%; border-collapse: collapse; font-size: 0.68em; }
+  .tech-table th { background: rgba(29,86,176,0.4); color: #fff; padding: 8px 12px; text-align: left; font-size: 0.75em; letter-spacing: 1px; text-transform: uppercase; }
+  .tech-table td { padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,0.06); color: #cbd5e1; }
+  .tech-table tr:hover td { background: rgba(255,255,255,0.04); }
+  .tech-table .demo-cell { color: var(--riverty-light); }
+  .tech-table .prod-cell { color: var(--riverty-accent); }
+
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: nowrap; justify-content: center; }
+  .flow-step { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 14px; text-align: center; min-width: 90px; }
+  .flow-step .icon { font-size: 1.4em; display: block; margin-bottom: 4px; }
+  .flow-step .label { font-size: 0.55em; color: #94a3b8; display: block; }
+  .flow-arrow { color: #475569; font-size: 1.2em; padding: 0 4px; flex-shrink: 0; }
+
+  .stat-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; text-align: center; }
+  .stat-card .num { font-size: 2.4em; font-weight: 900; color: var(--riverty-accent); line-height: 1; }
+  .stat-card .label { font-size: 0.6em; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 6px; }
+
+  .node-graph { display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .node { background: rgba(29,86,176,0.2); border: 1px solid rgba(29,86,176,0.5); border-radius: 8px; padding: 8px 12px; font-size: 0.62em; color: #fff; text-align: center; min-width: 80px; }
+  .node-arrow { color: #4d9de0; font-size: 1em; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.55em; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+  .pill-green { background: rgba(16,185,129,0.2); color: var(--riverty-green); }
+  .pill-warn  { background: rgba(245,158,11,0.2);  color: var(--riverty-warn); }
+  .pill-red   { background: rgba(239,68,68,0.2);   color: var(--riverty-red); }
+
+  .metric-cat { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px 16px; }
+  .metric-cat h5 { font-size: 0.62em; color: var(--riverty-accent); text-transform: uppercase; letter-spacing: 1px; margin: 0 0 6px 0; font-weight: 700; }
+  .metric-cat ul { list-style: none; padding: 0; margin: 0; }
+  .metric-cat li { font-size: 0.58em; color: #94a3b8; padding: 2px 0; }
+  .metric-cat li::before { content: "→ "; color: var(--riverty-blue); }
+
+  /* Speaker notes — hidden on screen, shown in notes view */
+  .reveal .slide-notes { display: none; }
+
+  .roadmap-row { display: flex; gap: 14px; margin-bottom: 12px; }
+  .roadmap-phase { flex: 1; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 14px 16px; }
+  .roadmap-phase h5 { font-size: 0.65em; font-weight: 700; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; }
+  .roadmap-phase li { font-size: 0.6em; color: #94a3b8; margin-bottom: 4px; }
+  .phase-now h5 { color: var(--riverty-green); }
+  .phase-short h5 { color: var(--riverty-warn); }
+  .phase-prod h5 { color: var(--riverty-accent); }
+  .phase-future h5 { color: var(--riverty-light); }
+
+  .adoption-step { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+  .adoption-num { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9em; font-weight: 900; flex-shrink: 0; margin-top: 2px; }
+  .adoption-text h4 { font-size: 0.78em; color: #fff; margin: 0 0 4px 0; font-weight: 700; }
+  .adoption-text p  { font-size: 0.63em; color: #94a3b8; margin: 0; line-height: 1.5; }
+
+  .check-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .check-icon { font-size: 0.9em; flex-shrink: 0; width: 20px; }
+  .check-text { font-size: 0.67em; color: #cbd5e1; flex: 1; }
+  .check-note { font-size: 0.58em; color: #475569; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 1 — TITLE
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="radial-gradient(ellipse at 20% 50%, rgba(29,86,176,0.18) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(0,212,170,0.1) 0%, transparent 50%), #050d1a">
+  <div style="text-align:left; padding: 40px 60px;">
+    <p style="color: var(--riverty-accent); font-size:0.75em; letter-spacing:3px; text-transform:uppercase; margin-bottom:18px;">Riverty · Legal Tech · 2026</p>
+    <h1>Contract Review<br><span style="color:var(--riverty-accent)">Intelligence</span></h1>
+    <p style="font-size:1em; color:#94a3b8; margin-top:20px; max-width:620px;">
+      AI-powered search, comparison, and compliance checking — built for your legal team, ready for your Azure stack.
+    </p>
+    <div style="display:flex; gap:10px; margin-top:34px; flex-wrap:wrap;">
+      <span class="tag tag-blue">RAG System</span>
+      <span class="tag tag-green">3 Query Modes</span>
+      <span class="tag tag-accent">Azure-Ready</span>
+      <span class="tag tag-warn">122 Tests · 0 Failures</span>
+    </div>
+  </div>
+  <aside class="notes">
+    30 seconds. "I built Riverty Contract Review — an AI system that lets your legal team upload contracts, ask plain-English questions, compare drafts, and run structured compliance checks. Everything runs on a laptop today and is one environment variable away from running on Azure."
+    Key message: this is not a prototype idea — it is a running system. We will go from problem to live demo in 15 minutes.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 2 — DOES THIS DELIVER THE BRIEF?
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Does this deliver the brief?</h2>
+  <div style="margin-top:16px;">
+    <div class="check-row">
+      <span class="check-icon">✅</span>
+      <span class="check-text"><strong>Compare contracts</strong></span>
+      <span class="check-note">MODE 2 + 3 — cross-document retrieval, grouped context, per-document verdict</span>
+    </div>
+    <div class="check-row">
+      <span class="check-icon">✅</span>
+      <span class="check-text"><strong>Find contracts missing a clause</strong></span>
+      <span class="check-note">find_missing query type — "Which contracts are missing a GDPR clause?"</span>
+    </div>
+    <div class="check-row">
+      <span class="check-icon">✅</span>
+      <span class="check-text"><strong>Find contracts with outdated company name</strong></span>
+      <span class="check-note">update_name router — surfaces all chunks containing the entity name to update</span>
+    </div>
+    <div class="check-row">
+      <span class="check-icon">✅</span>
+      <span class="check-text"><strong>Basic analysis pipeline</strong></span>
+      <span class="check-note">Full ETL: PDF/OCR → clean → chunk → embed → store — 122 tests, 0 failures</span>
+    </div>
+    <div class="check-row">
+      <span class="check-icon">✅</span>
+      <span class="check-text"><strong>Basic frontend demonstrating end-to-end</strong></span>
+      <span class="check-note">React UI — drag-drop upload, 3 modes, real-time SSE streaming, source citations</span>
+    </div>
+    <div class="check-row">
+      <span class="check-icon">✅</span>
+      <span class="check-text"><strong>Infrastructure concept</strong></span>
+      <span class="check-note">Demo/Azure swap pattern — single env var, every component has an Azure equivalent</span>
+    </div>
+    <div class="check-row">
+      <span class="check-icon">✅</span>
+      <span class="check-text"><strong>Adoption concept</strong></span>
+      <span class="check-note">3-phase pilot plan — legal pilot → feedback loop → Azure SSO rollout</span>
+    </div>
+    <div class="check-row">
+      <span class="check-icon">✅</span>
+      <span class="check-text"><strong>Evaluation framework</strong></span>
+      <span class="check-note">22 metrics across 7 categories — retrieval, generation, legal domain, attribution, robustness</span>
+    </div>
+  </div>
+  <aside class="notes">
+    1 minute. This slide is for your own confidence and as a quick orientation for the audience.
+    Walk through each row — point to the "how" in the right column.
+    Key message: every bullet from the original task spec has a concrete implementation.
+    Do NOT spend more than 60 seconds here — move quickly to the problem.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 3 — THE PROBLEM
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Why this system exists</h2>
+  <div class="card-grid card-grid-3" style="margin-top:20px;">
+    <div class="card">
+      <p style="font-size:2em; margin:0;">⏱</p>
+      <h4 style="color:#fff; margin:8px 0 4px; font-size:0.82em;">Manual Review</h4>
+      <p style="font-size:0.68em;">Hours per contract. Each reviewer opens the PDF, manually searches for clauses, and makes notes in a spreadsheet. No consistency.</p>
+    </div>
+    <div class="card">
+      <p style="font-size:2em; margin:0;">🔍</p>
+      <h4 style="color:#fff; margin:8px 0 4px; font-size:0.82em;">No Cross-Document Search</h4>
+      <p style="font-size:0.68em;">"Which contracts have unlimited liability?" requires opening every file. There is no way to query across the corpus simultaneously.</p>
+    </div>
+    <div class="card">
+      <p style="font-size:2em; margin:0;">⚠️</p>
+      <h4 style="color:#fff; margin:8px 0 4px; font-size:0.82em;">Inconsistent Reviews</h4>
+      <p style="font-size:0.68em;">Different reviewers miss different clauses. No audit trail. No confidence that every document was checked against the same standard.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:18px; background: rgba(0,212,170,0.06); border-color: rgba(0,212,170,0.3);">
+    <p style="font-size:0.72em; margin:0; color:#cbd5e1;">
+      <strong style="color:var(--riverty-accent);">The ask:</strong> "Our legal colleagues regularly need to compare contracts and identify contracts that do not contain a certain text passage or contracts in which a company name needs to be updated. So far, this is semi-manual work."
+    </p>
+  </div>
+  <aside class="notes">
+    1 minute. Start with a concrete scenario: "A supplier sends a 40-page service agreement. Before it can be signed, someone must verify it has a GDPR clause, check the termination notice matches your 90-day standard, and confirm the company name is current. That is one contract. If you have ten from the same procurement round, that multiplies — and you are still doing it manually."
+    Pause after the third card. Let the audience feel the pain before showing the solution.
+    Do not use the word "AI" here — use "the system" instead. Keep focus on the business problem.
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 4 — THREE MODES
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Three ways to analyse contracts</h2>
+  <div class="card-grid card-grid-3" style="margin-top:20px;">
+    <div class="mode-card mode-1">
+      <div class="mode-num">1</div>
+      <h4>Analyse Single Document</h4>
+      <p>Upload and ask questions about one contract. Document is never stored — extracted, analysed, then deleted.</p>
+      <span class="route">POST /api/analyze · mode=single</span>
+    </div>
+    <div class="mode-card mode-2">
+      <div class="mode-num">2</div>
+      <h4>Compare Against Knowledge Base</h4>
+      <p>Upload a draft and compare it against all stored contracts. Missing clauses, deviations, company name mismatches.</p>
+      <span class="route">POST /api/analyze · mode=compare</span>
+    </div>
+    <div class="mode-card mode-3">
+      <div class="mode-num">3</div>
+      <h4>Cross-Contract Query</h4>
+      <p>Ask a question across all stored contracts simultaneously. "Which contracts have unlimited liability?"</p>
+      <span class="route">POST /api/query</span>
+    </div>
+  </div>
+  <div style="margin-top:18px; padding: 10px 16px; background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.25); border-radius:8px;">
+    <p style="font-size:0.65em; margin:0; color:#fca5a5;">
+      <strong>Mode 1 privacy guarantee:</strong> temporary files are deleted in a <code style="color:var(--riverty-accent)">finally</code> block — enforced at route level, not just the UI.
+      Temporary documents <em>never</em> touch ChromaDB or persistent storage.
+    </p>
+  </div>
+  <aside class="notes">
+    1 minute. "Three modes, covering the three use cases from the brief."
+    Mode 1: "analyse any document without storing it — extracted, answered, deleted. Useful for sensitive drafts you are not yet ready to add to the knowledge base."
+    Mode 2: "compare a draft against everything in the knowledge base."
+    Mode 3: "query across all stored contracts at once — this is the 'which contracts are missing a GDPR clause?' use case."
+    Point to the red warning and say: "The privacy guarantee matters for a legal system. Temporary documents never persist. This is enforced at the route level, not just as a UI label."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 5 — ARCHITECTURE
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>System Architecture</h2>
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top:16px;">
+    <div>
+      <div class="card" style="margin-bottom:12px;">
+        <p style="font-size:0.65em; color: var(--riverty-accent); text-transform:uppercase; letter-spacing:1px; margin:0 0 8px; font-weight:700;">Frontend</p>
+        <p style="font-size:0.67em; margin:0;">React + TypeScript + Vite · drag-drop upload · 3-mode query UI · Server-Sent Events streaming</p>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <p style="font-size:0.65em; color: var(--riverty-accent); text-transform:uppercase; letter-spacing:1px; margin:0 0 8px; font-weight:700;">API Layer</p>
+        <p style="font-size:0.67em; margin:0; font-family:monospace;">POST /api/ingest · POST /api/query<br>POST /api/analyze · GET /api/files/{f}<br>GET /health · GET /api/suggested-questions</p>
+      </div>
+      <div class="card">
+        <p style="font-size:0.65em; color: var(--riverty-accent); text-transform:uppercase; letter-spacing:1px; margin:0 0 8px; font-weight:700;">Storage Layer</p>
+        <p style="font-size:0.67em; margin:0;">LocalStorage (demo) / Azure Blob (prod) · ChromaDB (demo) / Azure AI Search (prod)</p>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:12px;">
+        <p style="font-size:0.65em; color: var(--riverty-accent); text-transform:uppercase; letter-spacing:1px; margin:0 0 8px; font-weight:700;">ETL Pipeline</p>
+        <p style="font-size:0.67em; margin:0;">PDF (PyMuPDF) / OCR (Tesseract) → TextCleaner → ContentTypeDetector → DocumentChunker (3 strategies) → EmbeddingService → ChromaLoader</p>
+      </div>
+      <div class="card">
+        <p style="font-size:0.65em; color: var(--riverty-accent); text-transform:uppercase; letter-spacing:1px; margin:0 0 8px; font-weight:700;">LangGraph Agent — 4 Nodes</p>
+        <div class="node-graph" style="margin-top:10px;">
+          <div class="node">query_router<br><span style="color:#475569; font-size:0.8em;">classify intent</span></div>
+          <span class="node-arrow">→</span>
+          <div class="node">retriever<br><span style="color:#475569; font-size:0.8em;">cosine search</span></div>
+          <span class="node-arrow">→</span>
+          <div class="node">reasoner<br><span style="color:#475569; font-size:0.8em;">GPT-4o</span></div>
+          <span class="node-arrow">→</span>
+          <div class="node">formatter<br><span style="color:#475569; font-size:0.8em;">citations</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    2 minutes. "There are three layers."
+    Top: "The legal team opens a browser. They drag a contract in, type a question, and see the answer appear token by token — like ChatGPT, but grounded in their specific contracts."
+    Middle: "A FastAPI backend. Two families of endpoints: ingest for uploading, query for asking."
+    Bottom: "Two pipelines that never talk to each other. ETL runs when you upload. RAG agent runs when you ask."
+    Key design principle: "The LLM never sees a contract it does not need. It only sees the relevant chunks retrieved for this specific question. This prevents hallucination by construction — not by luck."
+    On LangGraph: "I chose LangGraph over a simple chain because it gives us explicit typed state. Each node receives a state dictionary and returns an updated one. Every node is independently unit-testable. The graph is debuggable as a diagram. This is why LangGraph exists."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 6 — DATA FLOW
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Query data flow — end to end</h2>
+  <p style="font-size:0.7em; color:#64748b; margin-bottom:18px;">Example: <em>"Which contracts are missing a GDPR data processing clause?"</em></p>
+
+  <div class="flow" style="margin-bottom:18px; flex-wrap:wrap; gap:4px;">
+    <div class="flow-step"><span class="icon">💬</span><span class="label">User question</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="border-color: rgba(29,86,176,0.5);"><span class="icon">🧭</span><span class="label">query_router<br>find_missing</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="border-color: rgba(0,212,170,0.4);"><span class="icon">🔢</span><span class="label">bge-m3<br>1024-dim vector</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="border-color: rgba(0,212,170,0.4);"><span class="icon">🗄️</span><span class="label">ChromaDB<br>top-8 chunks</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="border-color: rgba(245,158,11,0.4);"><span class="icon">🤖</span><span class="label">GPT-4o<br>grounded only</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step" style="border-color: rgba(16,185,129,0.4);"><span class="icon">📄</span><span class="label">SSE stream<br>+ citations</span></div>
+  </div>
+
+  <div class="card-grid card-grid-3" style="font-size:0.8em;">
+    <div class="card">
+      <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 6px;">Retrieval</p>
+      <p style="font-size:0.63em; margin:0;">Question embedded with same model as documents. Cosine similarity ≥ 0.40 threshold. Top-8 chunks from all contracts returned.</p>
+    </div>
+    <div class="card">
+      <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 6px;">Grounding</p>
+      <p style="font-size:0.63em; margin:0;">System prompt: <em>"Answer ONLY using the provided excerpts. If the information is not in these documents, say 'not found'."</em> The LLM cannot invent clauses.</p>
+    </div>
+    <div class="card">
+      <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 6px;">Source Attribution</p>
+      <p style="font-size:0.63em; margin:0;">Every answer ends with citations: filename · page number · chunk index · relevance dots (●◐○). Legal team can verify each claim directly.</p>
+    </div>
+  </div>
+  <aside class="notes">
+    1.5 minutes. Walk through the flow diagram left to right.
+    "Concrete example: 'Which contracts are missing a GDPR clause?' Router classifies as find_missing. Retriever embeds the question with bge-m3 locally — no API call — queries ChromaDB, returns top 8 chunks. The document grouper groups those chunks by source file, so GPT-4o sees a section per contract and gives a per-document verdict. The answer streams back token by token. At the bottom: source citations with file name, page number, and relevance score."
+    Key point to emphasise: "The embedding model runs locally. Contract text never leaves the machine during ingestion. No API call required until the user asks a question. This is relevant for data privacy."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 7 — TECH STACK
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Every tool — and why</h2>
+  <table class="tech-table" style="margin-top:14px;">
+    <thead>
+      <tr><th>Layer</th><th>Demo Tool</th><th>Production (Azure) Swap</th><th>Why This Choice</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Embeddings</td><td class="demo-cell">BAAI/bge-m3 local (1024-dim)</td><td class="prod-cell">Azure text-embedding-3-large (3072-dim)</td><td>Multilingual EN+DE, free, offline, no ingestion API cost</td></tr>
+      <tr><td>LLM</td><td class="demo-cell">AsyncOpenAI gpt-4o</td><td class="prod-cell">AsyncAzureOpenAI gpt-4o</td><td>Same SDK, same model — data stays in Riverty's Azure tenant</td></tr>
+      <tr><td>Vector store</td><td class="demo-cell">ChromaDB (local HNSW)</td><td class="prod-cell">Azure AI Search (hybrid)</td><td>One-line swap; Azure adds keyword+vector hybrid, RBAC, scale</td></tr>
+      <tr><td>File storage</td><td class="demo-cell">Local filesystem</td><td class="prod-cell">Azure Blob Storage</td><td>Versioning + legal hold for compliant contract copies</td></tr>
+      <tr><td>OCR</td><td class="demo-cell">Tesseract + Pillow</td><td class="prod-cell">Azure Document Intelligence</td><td>Handles handwriting, low-quality scans, table extraction</td></tr>
+      <tr><td>Agent framework</td><td class="demo-cell">LangGraph (local)</td><td class="prod-cell">LangGraph (unchanged)</td><td>Typed state, debuggable graph, independently testable nodes</td></tr>
+      <tr><td>Auth</td><td class="demo-cell">None (demo)</td><td class="prod-cell">Azure Active Directory</td><td>SSO — legal team uses existing Riverty credentials</td></tr>
+    </tbody>
+  </table>
+  <aside class="notes">
+    2 minutes. "Every row has a demo tool and an Azure swap. Let me highlight the important ones."
+    Embeddings: "bge-m3 runs locally — free, offline, handles German and English equally well. Contract text never leaves the machine during ingestion. In production that becomes Azure OpenAI, which keeps all data within Riverty's Azure tenant. For legal contracts that is not optional — it is a compliance requirement."
+    Auth: "The demo has no authentication because that is appropriate for a local demo. In production, Azure AD gives you SSO — legal team uses their existing Riverty login. No separate credentials to manage."
+    Strategy Pattern: "Every component uses the Strategy Pattern — an abstract base class with concrete implementations for demo and production. The calling code never changes. This was a deliberate design decision."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 8 — ONE ENV VAR SWITCH
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>One env var switches the entire stack</h2>
+  <div class="card" style="font-family:monospace; font-size:0.9em; margin: 16px 0; background: rgba(0,212,170,0.06); border-color: rgba(0,212,170,0.3);">
+    <p style="margin:0; font-size:0.7em;"><span style="color:#64748b;"># backend/.env</span><br>
+    <span style="color:var(--riverty-accent);">APP_ENV</span>=<span style="color:var(--riverty-warn);">production</span></p>
+  </div>
+  <div class="card-grid card-grid-3" style="font-size:0.85em;">
+    <div class="card">
+      <p style="font-size:0.62em; color: var(--riverty-blue); font-weight:700; margin:0 0 8px; text-transform:uppercase;">Pattern</p>
+      <p style="font-size:0.63em; margin:0;">Abstract <code>BaseLoader</code>, <code>BaseStorage</code>, <code>BaseExtractor</code>. Constructor branches on <code>APP_ENV</code>. No calling code changes.</p>
+    </div>
+    <div class="card">
+      <p style="font-size:0.62em; color: var(--riverty-blue); font-weight:700; margin:0 0 8px; text-transform:uppercase;">Swap Comments</p>
+      <p style="font-size:0.63em; margin:0;">Every source file has a marked comment block: <em>DEMO MODE → PRODUCTION SWAP →</em> telling the next developer exactly what to change and why.</p>
+    </div>
+    <div class="card">
+      <p style="font-size:0.62em; color: var(--riverty-blue); font-weight:700; margin:0 0 8px; text-transform:uppercase;">6 Credentials</p>
+      <p style="font-size:0.63em; margin:0;"><code>AZURE_OPENAI_API_KEY</code><br><code>AZURE_SEARCH_KEY</code><br><code>AZURE_BLOB_CONN_STR</code><br><code>AZURE_DOC_INTEL_KEY</code><br><code>AZURE_TENANT_ID</code><br><code>AZURE_CLIENT_ID</code></p>
+    </div>
+  </div>
+  <p style="font-size:0.6em; color:#475569; margin-top:14px;">⚠️ Switching embedding models requires re-ingesting contracts (dim change 1024→3072). The IngestionRegistry raises a 409 Conflict if you try to query with mismatched dimensions.</p>
+  <aside class="notes">
+    1 minute. "The whole stack switches with one line. This was the most important design decision."
+    "In the demo, ChromaDB runs locally. In production, the constructor checks APP_ENV and delegates to AzureSearchLoader. The calling code in pipeline.py never changes. Abstract BaseLoader interface means nothing else changes."
+    "Six credentials in .env. Terraform modules for the Azure resources would take 2-3 days to write properly. The application code is already production-ready."
+    On the 409 warning: "The IngestionRegistry detects embedding dimension mismatches and refuses to serve stale data. This prevents silent correctness bugs when upgrading the embedding model."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 9 — ETL PIPELINE
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Intelligent chunking strategy</h2>
+  <div class="card-grid card-grid-3" style="margin-top:18px;">
+    <div class="card" style="border-color: rgba(29,86,176,0.4);">
+      <p style="font-size:0.62em; color: var(--riverty-light); font-weight:700; margin:0 0 6px; text-transform:uppercase;">Q&amp;A Documents</p>
+      <p style="font-size:0.63em; margin:0 0 8px;">Splits at <code>Q:</code> markers. One chunk = one question + answer pair.</p>
+      <p style="font-size:0.58em; color:#475569;">Detected by: lines starting with "Q:"</p>
+    </div>
+    <div class="card" style="border-color: rgba(0,212,170,0.4);">
+      <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 6px; text-transform:uppercase;">Legal Contracts</p>
+      <p style="font-size:0.63em; margin:0 0 8px;">Splits at <code>§</code>, <code>Article N</code>, <code>Clause N</code>, <code>Artikel</code>, <code>Abschnitt</code>. One chunk = one legal clause.</p>
+      <p style="font-size:0.58em; color:#475569;">Detected by: §, Artikel, GDPR, Clause keywords</p>
+    </div>
+    <div class="card" style="border-color: rgba(245,158,11,0.4);">
+      <p style="font-size:0.62em; color: var(--riverty-warn); font-weight:700; margin:0 0 6px; text-transform:uppercase;">Narrative</p>
+      <p style="font-size:0.63em; margin:0 0 8px;">RecursiveCharacterTextSplitter — 1500 chars, 200-char overlap so no sentence is cut at a boundary.</p>
+      <p style="font-size:0.58em; color:#475569;">Default for all other documents</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px;">
+    <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 8px; text-transform:uppercase;">14 Metadata Fields Per Chunk</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <span class="tag tag-blue">source_file</span>
+      <span class="tag tag-blue">page_number</span>
+      <span class="tag tag-blue">chunk_index</span>
+      <span class="tag tag-blue">language (en/de)</span>
+      <span class="tag tag-blue">content_type</span>
+      <span class="tag tag-blue">checksum (MD5)</span>
+      <span class="tag tag-blue">extraction_method</span>
+      <span class="tag tag-blue">is_scanned</span>
+      <span class="tag tag-blue">embedding_model</span>
+      <span class="tag tag-blue">upload_timestamp</span>
+      <span class="tag tag-blue">text_preview</span>
+      <span class="tag tag-blue">chunking_strategy</span>
+    </div>
+  </div>
+  <aside class="notes">
+    1 minute. "Three chunking strategies, auto-detected by content type. Legal contracts split at clause headers — one chunk per clause, which is the atomic unit of legal meaning. If a chunk contains half a clause and half the next one, the retrieval quality degrades significantly."
+    "The ContentTypeDetector classifies each document automatically by looking for legal signal words — §, Artikel, GDPR, Clause — and QA patterns. For German contracts it recognises Abschnitt, Artikel, and Vertrag headers."
+    "Every chunk carries 14 metadata fields. The checksum enables deduplication — upload the same file twice and it returns status=skipped. The language field means we never mix German and English chunks in a single answer without knowing which is which."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 10 — EVALUATION FRAMEWORK
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Evaluation framework — 7 categories, 22 metrics</h2>
+  <div class="card-grid card-grid-4" style="margin-top:16px; gap:10px;">
+    <div class="metric-cat">
+      <h5>1. Retrieval</h5>
+      <ul>
+        <li>Precision@K (P@K)</li>
+        <li>Recall@K (R@K)</li>
+        <li>MRR</li>
+      </ul>
+    </div>
+    <div class="metric-cat">
+      <h5>2. Generation</h5>
+      <ul>
+        <li>Faithfulness</li>
+        <li>Answer Relevance</li>
+        <li>Completeness</li>
+        <li>Hallucination Rate</li>
+      </ul>
+    </div>
+    <div class="metric-cat">
+      <h5>3. Legal Domain</h5>
+      <ul>
+        <li>Contract Hit (Mode 2)</li>
+        <li>Keyword Hit (1,2,3)</li>
+        <li>Absent Kw Pass (Mode 1)</li>
+        <li>Comparison Hit (Mode 3)</li>
+      </ul>
+    </div>
+    <div class="metric-cat">
+      <h5>4. Context Quality</h5>
+      <ul>
+        <li>Context Precision</li>
+        <li>Context Recall</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card-grid card-grid-3" style="margin-top:10px; gap:10px;">
+    <div class="metric-cat">
+      <h5>5. Attribution</h5>
+      <ul>
+        <li>Citation Accuracy</li>
+        <li>Citation Coverage</li>
+      </ul>
+    </div>
+    <div class="metric-cat">
+      <h5>6. Robustness</h5>
+      <ul>
+        <li>Query Consistency</li>
+        <li>Noise Sensitivity</li>
+      </ul>
+    </div>
+    <div class="metric-cat">
+      <h5>7. System Performance</h5>
+      <ul>
+        <li>Latency (ms)</li>
+        <li>Cost per Query</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px; background: rgba(0,212,170,0.05); border-color: rgba(0,212,170,0.25);">
+    <p style="font-size:0.62em; margin:0; color:#94a3b8;">
+      <strong style="color:var(--riverty-accent);">Why this matters:</strong> Domain-specific metrics (Contract Hit, Keyword Hit, Absent Keyword Pass) catch correctness failures that generic NLP metrics miss entirely. A system can score well on BLEU but still fail to identify a missing GDPR clause.
+    </p>
+  </div>
+  <aside class="notes">
+    1.5 minutes. "We implemented a full evaluation framework — not just BLEU or accuracy, but 22 metrics across 7 categories designed specifically for RAG systems in the legal domain."
+    "The key insight is Category 3 — Legal Domain metrics. Generic NLP metrics like BLEU or ROUGE measure word overlap. They don't tell you whether the system correctly identified a missing GDPR clause. Contract Hit, Keyword Hit, and Absent Keyword Pass measure exactly that."
+    "Faithfulness measures whether the generated answer stays grounded in retrieved chunks — this is the hallucination metric. In production, we'd run this after every deployment to catch model regressions."
+    "Context Precision tells us whether the chunks we retrieved were actually useful — if we're retrieving irrelevant chunks and GPT-4o is ignoring them, we're wasting tokens and adding latency."
+    If asked about RAGAS: "RAGAS is the production-grade path for faithfulness and answer relevancy. We implemented the full metric specification; integrating with RAGAS for automated scoring is a one-sprint task."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 11 — CODE QUALITY
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Built to production standards</h2>
+  <div class="card-grid card-grid-4" style="margin-top:20px;">
+    <div class="stat-card">
+      <div class="num">122</div>
+      <div class="label">Tests — 0 failures</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">7</div>
+      <div class="label">Architecture Decision Records</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">14</div>
+      <div class="label">Metadata fields per chunk</div>
+    </div>
+    <div class="stat-card">
+      <div class="num">1</div>
+      <div class="label">Env var to production</div>
+    </div>
+  </div>
+  <div class="card-grid card-grid-2" style="margin-top:18px;">
+    <div class="card">
+      <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 8px; text-transform:uppercase;">Test Strategy</p>
+      <ul style="font-size:0.62em; color:#94a3b8; margin:0; padding-left:16px;">
+        <li>All tests run offline — no API key required</li>
+        <li>External services mocked at module boundary</li>
+        <li>Integration tests: full ingest → retrieve → answer E2E</li>
+        <li>German ↔ English cross-language retrieval tested</li>
+        <li>Security: path traversal blocked + tested</li>
+      </ul>
+    </div>
+    <div class="card">
+      <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 8px; text-transform:uppercase;">Code Standards</p>
+      <ul style="font-size:0.62em; color:#94a3b8; margin:0; padding-left:16px;">
+        <li>Strategy Pattern throughout — every component swappable</li>
+        <li>PEP8 + type hints + docstrings on every class and function</li>
+        <li>No hardcoded values — everything via config.py from .env</li>
+        <li>No business logic in route files — routes delegate only</li>
+        <li>Temp files deleted in <code>finally</code> blocks — no leaks</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    1 minute. "93 tests at last count — it's now 122. Zero failures. All offline — no API key needed to run the full suite."
+    "Seven ADRs document every major technical decision: why RAG over fine-tuning, why LangGraph over a simple chain, why SSE over WebSocket, why ChromaDB for the demo. The reasoning is on record."
+    "The test conftest patches AsyncOpenAI at the module boundary — not the instance. This was a real circular import we fixed during development. The fix is documented."
+    On security: "Path traversal is blocked on the /api/files/{filename} endpoint and tested. Temp files are deleted in finally blocks. CORS is set to localhost:3000 for demo — needs updating before production deployment."
+    If they ask about coverage numbers: "We measure test depth by scenario coverage, not line coverage percentage. Every code path that handles a legal document has a corresponding test."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 12 — ROADMAP
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Production roadmap</h2>
+
+  <div class="roadmap-row">
+    <div class="roadmap-phase phase-now">
+      <h5>Now — Ready Today</h5>
+      <ul>
+        <li>Full ETL pipeline (PDF + OCR)</li>
+        <li>LangGraph agent — 4 nodes</li>
+        <li>3 query modes with SSE streaming</li>
+        <li>React frontend — drag-drop, citations</li>
+        <li>122 tests, 7 ADRs</li>
+        <li>Azure swap pattern in every file</li>
+      </ul>
+    </div>
+    <div class="roadmap-phase phase-short">
+      <h5>Short-term (1–2 weeks)</h5>
+      <ul>
+        <li><code>GET /api/files</code> listing — sidebar survives page refresh</li>
+        <li>Re-index ChromaDB with consistent 1500-char chunks</li>
+        <li>Stream compliance check (currently waits full response)</li>
+        <li>Update ADR-005 to reflect 1500-char chunk size</li>
+        <li>VITE_ prefix for BASE_URL in frontend .env</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="roadmap-row">
+    <div class="roadmap-phase phase-prod">
+      <h5>Production Switch</h5>
+      <ul>
+        <li>Set APP_ENV=production + 6 Azure credentials</li>
+        <li>Deploy to Azure Container Apps</li>
+        <li>Azure AD SSO — no separate login</li>
+        <li>CORS update for production domain</li>
+        <li>Terraform modules for all Azure resources (~2–3 days)</li>
+      </ul>
+    </div>
+    <div class="roadmap-phase phase-future">
+      <h5>Advanced Enhancements</h5>
+      <ul>
+        <li>Hybrid search — vector + BM25 keyword (rank_bm25 + RRF)</li>
+        <li>Cross-encoder reranking (ms-marco-MiniLM)</li>
+        <li>Redis cache for embeddings + frequent queries</li>
+        <li>Parallel search calls to reduce latency</li>
+        <li>Azure Service Bus for async ingestion at scale</li>
+        <li>Contract type classification (NDA / Service / Vendor)</li>
+        <li>Multi-file batch upload (zip ingest)</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    45 seconds — keep this fast.
+    "What is ready today: everything you have seen in this presentation is running. Three query modes, full ETL, 122 tests."
+    "Short-term: three small gaps. The most visible is the files listing endpoint — after a page refresh the sidebar is empty even though documents are still indexed. One endpoint, 15 lines. The compliance stream is buffering the full response before sending — needs async streaming added."
+    "Production switch: six credentials in .env, one APP_ENV change. Terraform modules are the bulk of the infrastructure work."
+    "Advanced: hybrid search is the highest-value enhancement. Azure AI Search gives this for free. In demo, we can add rank_bm25 + Reciprocal Rank Fusion on top of ChromaDB without changing the database. Cross-encoder reranking adds ~30 lines and measurably improves precision for legal clause retrieval."
+    On caching: "Redis caching for embeddings and frequent queries cuts latency significantly in production. Embedding is the most expensive repeated operation."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 13 — USER ADOPTION
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="#050d1a">
+  <h2>Helping colleagues adopt the solution</h2>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:18px;">
+    <div>
+      <div class="adoption-step">
+        <div class="adoption-num" style="background: rgba(29,86,176,0.3); border: 2px solid var(--riverty-blue); color: var(--riverty-light);">1</div>
+        <div class="adoption-text">
+          <h4>Pilot — 2 weeks, 3 reviewers</h4>
+          <p>Pre-load 50 most-referenced contracts. 30-min demo session covering all 3 modes. Measure: time-to-answer per review task (before vs. after). Collect feedback on missed clauses, unexpected results.</p>
+        </div>
+      </div>
+      <div class="adoption-step">
+        <div class="adoption-num" style="background: rgba(0,212,170,0.15); border: 2px solid var(--riverty-accent); color: var(--riverty-accent);">2</div>
+        <div class="adoption-text">
+          <h4>Iterate — tune, expand, integrate</h4>
+          <p>Adjust similarity threshold (currently 0.40) based on real feedback. Add SharePoint integration — new contracts ingest automatically on upload. Build query templates for the 5 most common review tasks.</p>
+        </div>
+      </div>
+      <div class="adoption-step">
+        <div class="adoption-num" style="background: rgba(245,158,11,0.15); border: 2px solid var(--riverty-warn); color: var(--riverty-warn);">3</div>
+        <div class="adoption-text">
+          <h4>Full Rollout — Azure AD SSO</h4>
+          <p>Legal team uses existing Riverty credentials. No new passwords. Role-based access: reviewers can query, managers can ingest, admins can delete. Audit log for every query.</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:12px;">
+        <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 8px; text-transform:uppercase;">Guardrails — what the system does NOT do</p>
+        <ul style="font-size:0.62em; color:#94a3b8; margin:0; padding-left:16px;">
+          <li>Does not give legal advice</li>
+          <li>Does not replace lawyers — surfaces evidence, humans decide</li>
+          <li>Does not interpret contract validity</li>
+          <li>All answers cite sources — every claim is auditable</li>
+        </ul>
+      </div>
+      <div class="card">
+        <p style="font-size:0.62em; color: var(--riverty-accent); font-weight:700; margin:0 0 8px; text-transform:uppercase;">Success Metrics</p>
+        <ul style="font-size:0.62em; color:#94a3b8; margin:0; padding-left:16px;">
+          <li>Time per contract review (target: -60%)</li>
+          <li>Missed clauses in post-review audit</li>
+          <li>User satisfaction after 2-week pilot</li>
+          <li>Query precision@K score on ground-truth set</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    2 minutes. "The brief asked for a concept for helping colleagues adopt the solution. Here is the three-phase plan."
+    Phase 1: "A big-bang rollout to 40 people on day one would fail. Pilot with two or three legal reviewers who are willing to experiment. Pre-load your 50 most-referenced contracts so there is immediate value. Measure time-to-answer in their real workflow, before and after."
+    Phase 2: "The similarity threshold of 0.40 is our starting point — we tune it based on real feedback. If reviewers say 'it misses clauses,' we lower it. If it returns too much noise, we raise it. This is why we built the evaluation framework."
+    Phase 3: "Azure AD SSO means no separate login — your team uses their existing Riverty credentials. This is the single biggest adoption barrier removed."
+    Guardrails: "This is the most important thing to communicate to the legal team. The system surfaces evidence. Lawyers make the final decision. Every answer has citations. Nothing is stated without a source."
+    On success metrics: "Time per review task is the primary KPI. Missed clauses in a post-review spot-check is the quality gate. If we can show -60% time with equal or better clause coverage, the business case is made."
+  </aside>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 14 — CLOSING
+     ═══════════════════════════════════════════════════════════ -->
+<section data-background="radial-gradient(ellipse at 80% 50%, rgba(0,212,170,0.12) 0%, transparent 60%), radial-gradient(ellipse at 20% 80%, rgba(29,86,176,0.15) 0%, transparent 50%), #050d1a">
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; height: 80vh; padding: 0 40px;">
+    <div>
+      <h1 style="font-size:2.2em; margin:0;">Built to run.<br>Designed to <span style="color:var(--riverty-accent)">ship.</span></h1>
+      <p style="color:#64748b; margin-top:18px; font-size:0.8em;">System is live. Contracts indexed. Three modes ready. One env var from Azure.</p>
+      <div style="margin-top:28px; display:flex; gap:10px; flex-wrap:wrap;">
+        <span class="tag tag-green">122 Tests · 0 Failures</span>
+        <span class="tag tag-accent">7 ADRs</span>
+        <span class="tag tag-blue">22 Eval Metrics</span>
+        <span class="tag tag-warn">Azure-Ready</span>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div class="card">
+        <p style="font-size:0.6em; color:#64748b; margin:0 0 4px; text-transform:uppercase; letter-spacing:1px;">Live Demo</p>
+        <p style="font-size:0.68em; color:#fff; margin:0; font-family:monospace;">http://localhost:8000/docs<br>http://localhost:3000</p>
+      </div>
+      <div class="card">
+        <p style="font-size:0.6em; color:#64748b; margin:0 0 4px; text-transform:uppercase; letter-spacing:1px;">Source</p>
+        <p style="font-size:0.68em; color:#fff; margin:0; font-family:monospace;">backend/app/{etl,rag,api}<br>frontend/src/{components,hooks}</p>
+      </div>
+      <div class="card">
+        <p style="font-size:0.6em; color:#64748b; margin:0 0 4px; text-transform:uppercase; letter-spacing:1px;">Tests</p>
+        <p style="font-size:0.68em; color:#fff; margin:0; font-family:monospace;">pytest backend/tests/<br>122 passed · 0 failed</p>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    30 seconds. Stop talking. Let them ask.
+    If they want to see the live system: switch to terminal and run:
+      curl http://localhost:8000/health
+      curl -s -N -X POST http://localhost:8000/api/query -H "Content-Type: application/json" -d '{"question": "Which contracts are missing a GDPR data processing clause?"}'
+    If they ask about the demo: "I have four synthetic contracts loaded — an NDA with TechCorp (has GDPR clause), a service agreement with DataSystems (intentionally missing it), a German service contract with Müller GmbH, and a scanned vendor agreement that went through Tesseract OCR."
+  </aside>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/notes/notes.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/highlight/highlight.min.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    progress: true,
+    controls: true,
+    transition: 'fade',
+    transitionSpeed: 'fast',
+    backgroundTransition: 'fade',
+    width: 1280,
+    height: 720,
+    margin: 0.04,
+    plugins: [ RevealNotes, RevealHighlight ]
+  });
+</script>
+</body>
+</html>

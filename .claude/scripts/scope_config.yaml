@@ -1,0 +1,102 @@
+# =========================
+# REPO PROCESSING CONFIG
+# =========================
+
+# Directories to scan (recursive)
+include_dirs:
+  - backend/app/
+  - backend/tests/
+  - frontend/src/
+
+# Explicit files to include (still subject to exclude unless forced)
+include_files:
+  - .env.example
+
+# Only these file types will be processed inside include_dirs
+include_extensions:
+  - "*.py"
+  - "*.js"
+  - "*.jsx"
+  - "*.ts"
+  - "*.tsx"
+
+
+# 🚨 FORCE INCLUDE (highest priority)
+# These files will be included EVEN IF they match exclude rules
+force_include:
+  - docs/implementation-guide.md
+  - docs/testing-guide.md
+  - .env.example
+
+# =========================
+# EXCLUSIONS
+# =========================
+exclude:
+
+  # Exact file names
+  files:
+    - .env
+    - .gitignore
+    - .dockerignore
+
+  # Pattern-based exclusions
+  patterns:
+    - ".env.*"
+    - "*.pyc"
+    - "*.log"
+    - "*.md"
+    - "*.yaml"
+    - "*.yml"
+    - "*.json"
+    - "*.csv"
+    - "*.xlsx"
+    - "*.pdf"
+
+  # Directories to ignore completely
+  directories:
+    - .git/
+    - __pycache__/
+    - venv/
+    - env/
+    - .venv/
+    - riverty/
+    - data/
+    - chroma_db/
+    - logs/
+    - htmlcov/
+    - node_modules/
+    - .ipynb_checkpoints/
+    - dist/
+    - build/
+    - coverage/
+    - .cache/
+    - .mypy_cache/
+    - .pytest_cache/
+    - .vscode/
+    - .idea/
+    - .DS_Store/
+    - .github/
+    - .gitlab/
+    - .circleci/
+
+# =========================
+# RULES
+# =========================
+rules:
+
+  # Priority order (top = strongest)
+  priority_order:
+    - force_include
+    - exclude
+    - include_files
+    - include_extensions
+    - include_dirs
+
+  # Also respect .gitignore
+  respect_gitignore: true
+
+  # Behavior explanation
+  description: >
+    Files listed in force_include will always be processed,
+    even if they match exclusion rules. All other files are filtered
+    through exclude rules first, then inclusion rules.
