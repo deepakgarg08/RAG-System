@@ -26,7 +26,12 @@ class Settings(BaseSettings):
 
     # --- File storage (DEMO) ---
     upload_dir: str = Field(default="./uploads", alias="UPLOAD_DIR")
-    registry_path: str = Field(default="./ingestion_registry.json", alias="REGISTRY_PATH")
+    # Registry path is resolved relative to this file's directory (backend/)
+    # so it is always backend/ingestion_registry.json regardless of CWD.
+    registry_path: str = Field(
+        default=str(Path(__file__).parent.parent / "ingestion_registry.json"),
+        alias="REGISTRY_PATH",
+    )
 
     # --- ETL parameters ---
     max_chunk_size: int = Field(default=1500, alias="MAX_CHUNK_SIZE")

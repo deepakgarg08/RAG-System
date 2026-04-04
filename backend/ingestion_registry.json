@@ -5,7 +5,7 @@
       "filename": "contract_gdpr_strict.pdf",
       "checksum": "md5:bcdc3d877387676b32b098f957ce8c26",
       "embedding_model": "BAAI/bge-m3",
-      "ingestion_timestamp": "2026-03-30T21:52:50Z",
+      "ingestion_timestamp": "2026-04-02T09:25:29Z",
       "chunk_count": 4,
       "status": "success"
     },
@@ -13,7 +13,7 @@
       "filename": "contract_missing_gdpr.pdf",
       "checksum": "md5:9b2ed9c315f8b1b831091df0138b0b86",
       "embedding_model": "BAAI/bge-m3",
-      "ingestion_timestamp": "2026-03-30T21:52:52Z",
+      "ingestion_timestamp": "2026-04-02T09:25:31Z",
       "chunk_count": 4,
       "status": "success"
     },
@@ -21,7 +21,7 @@
       "filename": "contract_unlimited_liability.pdf",
       "checksum": "md5:fcf36e6aedb405776f5dfc079f7c4e6b",
       "embedding_model": "BAAI/bge-m3",
-      "ingestion_timestamp": "2026-03-30T21:52:55Z",
+      "ingestion_timestamp": "2026-04-02T09:25:34Z",
       "chunk_count": 4,
       "status": "success"
     },
@@ -29,7 +29,7 @@
       "filename": "contract_weak_termination.pdf",
       "checksum": "md5:4358b622ae77d52f378e7a1c09f47b13",
       "embedding_model": "BAAI/bge-m3",
-      "ingestion_timestamp": "2026-03-30T21:52:59Z",
+      "ingestion_timestamp": "2026-04-02T09:25:37Z",
       "chunk_count": 4,
       "status": "success"
     }

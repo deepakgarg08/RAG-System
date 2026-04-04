@@ -11,13 +11,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.api.routes.health import router as health_router
-from app.api.routes.ingest import router as ingest_router
+from app.api.routes.ingest import router as ingest_router, get_all_supported_files, _ALLOWED_EXTENSIONS
 from app.api.routes.query import router as query_router
 from app.api.routes.files import router as files_router
 from app.api.routes.suggestions import router as suggestions_router
 from app.api.routes.analyze import router as analyze_router
 from app.api.routes.compliance import router as compliance_router
 from app.api.routes.eval_retrieve import router as eval_retrieve_router
+from app.etl.pipeline import IngestionPipeline, ModelMismatchError
 from app.rag.embeddings import _get_local_model, _get_service
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,30 @@ async def lifespan(app: FastAPI):
     _get_service()
 
     print("✅ Embedding model preloaded")
+
+    # --- Auto-ingest any files in uploads/ that are not yet in the registry ---
+    try:
+        pipeline = IngestionPipeline()
+        files = get_all_supported_files(str(upload_dir), _ALLOWED_EXTENSIONS)
+        new_files = 0
+        for path in files:
+            result = pipeline.ingest(path)
+            if result["status"] == "success":
+                new_files += 1
+                logger.info("startup ingest: %s — %d chunks", result["filename"], result["chunks_created"])
+            elif result["status"] == "skipped":
+                logger.debug("startup ingest: %s already ingested, skipping", result["filename"])
+        if new_files:
+            print(f"✅ Auto-ingested {new_files} new file(s) on startup")
+        else:
+            print("✅ All uploads already ingested — nothing to do")
+    except ModelMismatchError as exc:
+        logger.error("startup ingest: embedding model mismatch — %s", exc)
+        print(f"⚠️  Startup ingest skipped: {exc}")
+    except Exception as exc:
+        logger.error("startup ingest: unexpected error — %s", exc)
+        print(f"⚠️  Startup ingest failed: {exc}")
+
     yield
     
     

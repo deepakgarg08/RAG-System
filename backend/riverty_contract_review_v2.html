@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Riverty Contract Review — Technical Overview v2</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 18mm 20mm 18mm;
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 8pt;
+      color: #94a3b8;
+    }
+    @bottom-left {
+      content: "Riverty Contract Review · AI-Powered Legal Analysis · 2026";
+      font-size: 8pt;
+      color: #94a3b8;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10pt;
+    line-height: 1.6;
+    color: #1e293b;
+    margin: 0;
+    padding: 0;
+  }
+
+  h1 { font-size: 26pt; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.15; }
+  h2 {
+    font-size: 14pt; font-weight: 700; color: #fff;
+    background: #1a56b0;
+    padding: 7pt 12pt;
+    border-radius: 6px;
+    margin: 22pt 0 10pt;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 11pt; font-weight: 700; color: #0f172a; margin: 14pt 0 5pt; page-break-after: avoid; border-bottom: 1px solid #e2e8f0; padding-bottom: 3pt; }
+  h4 { font-size: 10pt; font-weight: 700; color: #1a56b0; margin: 10pt 0 4pt; page-break-after: avoid; }
+
+  p  { margin: 0 0 8pt; }
+  ul, ol { margin: 4pt 0 8pt 20pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+  strong { color: #0f172a; }
+
+  code {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 8.5pt;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: #0f172a;
+  }
+
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 8pt;
+    line-height: 1.5;
+    padding: 10pt 12pt;
+    border-radius: 8px;
+    margin: 8pt 0;
+    page-break-inside: avoid;
+  }
+  pre code { background: none; border: none; padding: 0; color: #e2e8f0; font-size: 8pt; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #1e3a5f;
+    color: #fff;
+    text-align: left;
+    padding: 7pt 9pt;
+    font-size: 8.5pt;
+    font-weight: 700;
+  }
+  td {
+    padding: 6pt 9pt;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  /* ── COVER PAGE ── */
+  .cover {
+    min-height: 260pt;
+    background: linear-gradient(135deg, #0a2540 0%, #1a56b0 60%, #0e7490 100%);
+    border-radius: 12px;
+    padding: 40pt 36pt;
+    margin-bottom: 24pt;
+    color: #fff;
+    page-break-inside: avoid;
+  }
+  .cover-label {
+    font-size: 9pt; letter-spacing: 3px; text-transform: uppercase;
+    color: rgba(255,255,255,0.65); margin-bottom: 14pt;
+  }
+  .cover h1 { color: #fff; font-size: 28pt; }
+  .cover-subtitle { font-size: 13pt; color: rgba(255,255,255,0.8); margin-top: 8pt; }
+  .cover-meta { font-size: 9pt; color: rgba(255,255,255,0.55); margin-top: 14pt; }
+  .cover-divider { border: none; border-top: 1px solid rgba(255,255,255,0.2); margin: 16pt 0; }
+  .badge {
+    display: inline-block;
+    padding: 3pt 10pt;
+    border-radius: 20px;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin: 3pt 4pt 3pt 0;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.1);
+  }
+  .badge-green { background: rgba(16,185,129,0.25); border-color: rgba(16,185,129,0.5); color: #6ee7b7; }
+  .badge-amber { background: rgba(245,158,11,0.25); border-color: rgba(245,158,11,0.5); color: #fcd34d; }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    border-left: 4px solid #1a56b0;
+    background: #eff6ff;
+    padding: 8pt 12pt;
+    margin: 8pt 0;
+    border-radius: 0 6px 6px 0;
+    page-break-inside: avoid;
+    font-size: 9.5pt;
+  }
+  .callout.green { border-color: #16a34a; background: #f0fdf4; }
+  .callout.amber { border-color: #d97706; background: #fffbeb; }
+  .callout.red   { border-color: #dc2626; background: #fef2f2; }
+
+  /* ── SWAP BOX ── */
+  .swap-box {
+    background: #0f172a;
+    color: #a5f3fc;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 8pt;
+    line-height: 1.6;
+    padding: 10pt;
+    border-radius: 6px;
+    margin: 8pt 0;
+    page-break-inside: avoid;
+  }
+
+  /* ── GRID CARDS ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; margin: 8pt 0; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10pt; margin: 8pt 0; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8pt; margin: 8pt 0; }
+
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10pt 12pt;
+    page-break-inside: avoid;
+  }
+  .card-title {
+    font-size: 8.5pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #1a56b0; margin: 0 0 6pt;
+  }
+  .card p, .card li { font-size: 9pt; color: #475569; }
+
+  /* ── STAT BOXES ── */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8pt; margin: 10pt 0; }
+  .stat-box {
+    background: linear-gradient(135deg, #1a56b0 0%, #0e7490 100%);
+    border-radius: 10px;
+    text-align: center;
+    padding: 12pt 6pt;
+    color: #fff;
+    page-break-inside: avoid;
+  }
+  .stat-num { font-size: 22pt; font-weight: 900; line-height: 1; }
+  .stat-lbl { font-size: 7.5pt; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3pt; }
+
+  /* ── METRIC GROUP ── */
+  .metric-group {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #1a56b0;
+    border-radius: 0 8px 8px 0;
+    padding: 8pt 12pt;
+    margin-bottom: 7pt;
+    page-break-inside: avoid;
+  }
+  .metric-group h4 { margin: 0 0 4pt; color: #1a56b0; border: none; padding: 0; font-size: 9.5pt; }
+  .metric-group ul { margin: 0 0 0 14pt; }
+  .metric-group li { font-size: 9pt; color: #475569; margin-bottom: 2pt; }
+
+  /* ── MODE CARDS ── */
+  .mode-card {
+    border-radius: 10px;
+    padding: 12pt 14pt;
+    page-break-inside: avoid;
+  }
+  .mode-1 { background: #eff6ff; border: 1px solid #bfdbfe; }
+  .mode-2 { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .mode-3 { background: #fffbeb; border: 1px solid #fde68a; }
+  .mode-card h4 { margin: 0 0 5pt; font-size: 10pt; border: none; padding: 0; }
+  .mode-card p { font-size: 9pt; color: #475569; margin: 0 0 5pt; }
+  .mode-card code { font-size: 8pt; }
+
+  /* ── NEW BADGE ── */
+  .new { display: inline-block; background: #10b981; color: #fff; font-size: 6.5pt;
+         font-weight: 800; padding: 1pt 5pt; border-radius: 3px; margin-left: 5pt;
+         vertical-align: middle; letter-spacing: 0.5px; }
+
+  /* ── FLOW ── */
+  .flow-row { display: flex; align-items: center; gap: 4pt; margin: 8pt 0; flex-wrap: wrap; }
+  .flow-step {
+    background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px;
+    padding: 6pt 10pt; text-align: center; font-size: 8.5pt; font-weight: 600;
+    color: #0f172a; min-width: 80pt;
+  }
+  .flow-step small { display: block; font-size: 7pt; color: #64748b; font-weight: 400; margin-top: 2pt; }
+  .flow-arrow { color: #94a3b8; font-size: 12pt; padding: 0 2pt; }
+
+  /* ── PIPELINE STEP ── */
+  .pipe-step {
+    display: flex; align-items: flex-start; gap: 10pt; margin-bottom: 8pt;
+    page-break-inside: avoid;
+  }
+  .pipe-num {
+    width: 22pt; height: 22pt; border-radius: 50%;
+    background: #1a56b0; color: #fff;
+    font-size: 9pt; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1pt;
+  }
+  .pipe-content h4 { margin: 0 0 3pt; border: none; padding: 0; }
+  .pipe-content p  { margin: 0; font-size: 9pt; color: #475569; }
+
+  .page-break { page-break-before: always; }
+
+  /* ── TOC ── */
+  .toc-row { display: flex; justify-content: space-between; align-items: baseline;
+             border-bottom: 1px dotted #cbd5e1; padding: 3.5pt 0; font-size: 9.5pt; }
+  .toc-row a { color: #1a56b0; text-decoration: none; }
+  .toc-section { font-weight: 700; margin-top: 8pt; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     COVER
+════════════════════════════════════════════ -->
+<div class="cover">
+  <p class="cover-label">Riverty · Legal Technology · AI Contract Intelligence</p>
+  <h1>Contract Review<br>Intelligence System</h1>
+  <p class="cover-subtitle">
+    AI-powered search, comparison, and compliance checking —<br>
+    built for your legal team, ready for your Azure stack.
+  </p>
+  <hr class="cover-divider">
+  <div>
+    <span class="badge">RAG Architecture</span>
+    <span class="badge badge-green">Hybrid BM25 + Semantic Search</span>
+    <span class="badge badge-green">Cross-Encoder Reranking</span>
+    <span class="badge">3 Analysis Modes</span>
+    <span class="badge">Azure-Ready · One Env Var</span>
+    <span class="badge badge-amber">22 Evaluation Metrics</span>
+    <span class="badge badge-amber">122 Tests · 0 Failures</span>
+  </div>
+  <p class="cover-meta">
+    Prepared: April 2026 &nbsp;·&nbsp; Branch: main &nbsp;·&nbsp; Version 2
+  </p>
+</div>
+
+<!-- ════════════════════════════════════════════
+     STATS
+════════════════════════════════════════════ -->
+<div class="stat-row">
+  <div class="stat-box"><div class="stat-num">3</div><div class="stat-lbl">Analysis modes</div></div>
+  <div class="stat-box"><div class="stat-num">22</div><div class="stat-lbl">Eval metrics</div></div>
+  <div class="stat-box"><div class="stat-num">122</div><div class="stat-lbl">Tests · 0 failures</div></div>
+  <div class="stat-box"><div class="stat-num">1</div><div class="stat-lbl">Env var to Azure</div></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     TABLE OF CONTENTS
+════════════════════════════════════════════ -->
+<h2>Table of Contents</h2>
+<div class="toc-row"><span><a>1. Problem Statement &amp; What the System Solves</a></span><span>p.2</span></div>
+<div class="toc-row"><span><a>2. System Architecture Overview</a></span><span>p.2</span></div>
+<div class="toc-row"><span><a>3. Three Analysis Modes</a></span><span>p.3</span></div>
+<div class="toc-row"><span><a>4. Data Ingestion Pipeline (ETL)</a></span><span>p.4</span></div>
+<div class="toc-row toc-section"><span><a>5. Retrieval Layer — What's New</a></span><span>p.5</span></div>
+<div class="toc-row" style="padding-left:12pt;"><span>&nbsp;&nbsp;5.1 Classic Dense Retrieval (baseline)</span><span>p.5</span></div>
+<div class="toc-row" style="padding-left:12pt;"><span>&nbsp;&nbsp;5.2 Hybrid BM25 + Dense + RRF <span class="new">NEW</span></span><span>p.5</span></div>
+<div class="toc-row" style="padding-left:12pt;"><span>&nbsp;&nbsp;5.3 Cross-Encoder Reranking <span class="new">NEW</span></span><span>p.6</span></div>
+<div class="toc-row" style="padding-left:12pt;"><span>&nbsp;&nbsp;5.4 MMR Diversity Filter <span class="new">NEW</span></span><span>p.6</span></div>
+<div class="toc-row"><span><a>6. LangGraph Agent Pipeline</a></span><span>p.7</span></div>
+<div class="toc-row"><span><a>7. Tech Stack &amp; Azure Production Swap</a></span><span>p.7</span></div>
+<div class="toc-row"><span><a>8. API Reference</a></span><span>p.9</span></div>
+<div class="toc-row"><span><a>9. Frontend Architecture</a></span><span>p.9</span></div>
+<div class="toc-row toc-section"><span><a>10. Evaluation Framework — 7 Categories, 22 Metrics <span class="new">NEW</span></a></span><span>p.10</span></div>
+<div class="toc-row"><span><a>11. How to Run &amp; Evaluate</a></span><span>p.13</span></div>
+<div class="toc-row"><span><a>12. Production Roadmap</a></span><span>p.13</span></div>
+<div class="toc-row"><span><a>13. File &amp; Folder Structure</a></span><span>p.14</span></div>
+
+<!-- ════════════════════════════════════════════
+     SECTION 1 — PROBLEM
+════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>1. Problem Statement &amp; What the System Solves</h2>
+
+<p>Riverty's legal team reviews hundreds of contracts annually. The current process is semi-manual — reviewers open each PDF individually, search for specific clauses, and record findings in spreadsheets. This creates three compounding problems:</p>
+
+<div class="grid-3">
+  <div class="card">
+    <div class="card-title">Time Cost</div>
+    <p>Reading full PDFs clause by clause takes hours per contract. Business decisions are delayed waiting for legal sign-off.</p>
+  </div>
+  <div class="card">
+    <div class="card-title">Inconsistency</div>
+    <p>Different reviewers focus on different clauses. No consistent checklist means compliance risks slip through undetected.</p>
+  </div>
+  <div class="card">
+    <div class="card-title">No Cross-Document Search</div>
+    <p>"Which contracts have unlimited liability?" requires opening every file. There is no way to query the full portfolio simultaneously.</p>
+  </div>
+</div>
+
+<div class="callout green">
+  <strong>The brief:</strong> "Our legal colleagues regularly need to compare contracts and identify contracts that do not contain a certain text passage or contracts in which a company name needs to be updated. So far, this is semi-manual work."
+</div>
+
+<h3>What the System Delivers</h3>
+<table>
+  <tr><th>Capability</th><th>How</th><th>Example query</th></tr>
+  <tr><td><strong>Instant clause search</strong></td><td>Hybrid semantic + keyword search across all stored contracts</td><td>"Which contracts are missing a GDPR clause?"</td></tr>
+  <tr><td><strong>Draft comparison</strong></td><td>Upload new contract, compare against entire knowledge base</td><td>"How does this draft differ from our existing agreements?"</td></tr>
+  <tr><td><strong>Compliance check</strong></td><td>Structured GDPR, termination, liability, jurisdiction check</td><td>Returns: compliant: true/false + violations list</td></tr>
+  <tr><td><strong>Entity name search</strong></td><td>BM25 exact-term matching for company names, article numbers</td><td>"Which contracts still reference the old company name?"</td></tr>
+  <tr><td><strong>Source citations</strong></td><td>Every answer cites document, page number, and chunk index</td><td>Legal team can verify each claim against the original PDF</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════
+     SECTION 2 — ARCHITECTURE
+════════════════════════════════════════════ -->
+<h2>2. System Architecture Overview</h2>
+
+<pre>
+USER BROWSER — React + TypeScript SPA
+┌──────────────────────────────────────────────────────────────┐
+│  [ Analyze Document ]  [ Compare with DB ]  [ Search KB ]    │
+│      MODE 1                  MODE 2              MODE 3       │
+└──────────────┬───────────────────┬──────────────────┬────────┘
+               │  SSE stream       │  SSE stream      │  SSE stream
+               ▼                   ▼                  ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    FastAPI Backend  :8000                      │
+│  POST /api/analyze   POST /api/analyze   POST /api/query      │
+│  POST /api/compliance                    POST /api/eval/retrieve│
+├─────────────────────────┬────────────────────────────────────┤
+│  ETL Pipeline           │  RAG Layer                          │
+│  PDF / OCR              │  EmbeddingService (BAAI/bge-m3)     │
+│  → TextCleaner          │  HybridRetriever  ← BM25 + Dense   │
+│  → ContentTypeDetector  │  CrossEncoder Reranker              │
+│  → DocumentChunker      │  MMR Diversity Filter               │
+│  → EmbeddingService     │  LangGraph Agent (4 nodes)          │
+│  → ChromaDB             │                                     │
+└─────────────────────────┴────────────────────────────────────┘
+         │
+         ▼
+ChromaDB local disk (demo)  ←──────────→  Azure AI Search (production)
+</pre>
+
+<p>The system has two completely independent pipelines that never interfere: the <strong>ETL pipeline</strong> runs once per document at ingest time; the <strong>RAG pipeline</strong> runs at query time. The LLM never sees a contract it does not need — it only sees the specific chunks retrieved for the current question, preventing hallucination by construction.</p>
+
+<!-- ════════════════════════════════════════════
+     SECTION 3 — THREE MODES
+════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>3. Three Analysis Modes</h2>
+
+<div class="grid-3">
+  <div class="mode-card mode-1">
+    <h4>MODE 1 — Analyse Single Document</h4>
+    <p>Upload any contract and ask questions about it. The document is extracted, analysed, and then <strong>immediately deleted</strong> — it is never added to the knowledge base. Useful for sensitive drafts not yet ready to store.</p>
+    <p>Also supports structured <strong>compliance check</strong>: returns a JSON result with compliant flag, violations list, and explanation.</p>
+    <code>POST /api/analyze · mode=single<br>POST /api/compliance</code>
+  </div>
+  <div class="mode-card mode-2">
+    <h4>MODE 2 — Compare Against Knowledge Base</h4>
+    <p>Upload a draft contract and compare it against all stored contracts. The system retrieves the most similar stored contracts semantically, then presents GPT-4o with both the uploaded document and retrieved contracts for a side-by-side comparison.</p>
+    <p>Identifies <strong>missing clauses, deviations, and company name mismatches</strong>.</p>
+    <code>POST /api/analyze · mode=compare</code>
+  </div>
+  <div class="mode-card mode-3">
+    <h4>MODE 3 — Cross-Contract Query</h4>
+    <p>Ask any question across all stored contracts simultaneously — no file upload needed. Uses the full hybrid retrieval pipeline (BM25 + semantic + reranking). The LangGraph agent classifies the query type and builds the appropriate context.</p>
+    <p>Answers include <strong>per-document verdicts</strong> for "which contracts" queries.</p>
+    <code>POST /api/query</code>
+  </div>
+</div>
+
+<div class="callout red">
+  <strong>Privacy guarantee — Mode 1 &amp; 2:</strong> Temporary files are deleted in a <code>finally</code> block in the route handler — this is enforced at the server level, not just the UI label. Temporary documents <em>never</em> touch ChromaDB or any persistent storage.
+</div>
+
+<h3>Compliance Check (Mode 1)</h3>
+<p>A dedicated endpoint performs a structured compliance assessment against default legal guidelines. Returns machine-readable JSON, not a prose stream:</p>
+<pre>
+POST /api/compliance → ComplianceResult
+{
+  "compliant": false,
+  "violations": [
+    "No GDPR / data protection clause found",
+    "Termination notice period not specified"
+  ],
+  "explanation": "The contract does not address data processing obligations..."
+}
+</pre>
+<p><strong>Default checks:</strong> GDPR / data protection clause · Termination rights and notice period · Governing law and jurisdiction · Liability cap and limitation clauses · Clear party identification</p>
+
+<!-- ════════════════════════════════════════════
+     SECTION 4 — ETL PIPELINE
+════════════════════════════════════════════ -->
+<h2>4. Data Ingestion Pipeline (ETL)</h2>
+
+<div class="pipe-step">
+  <div class="pipe-num">1</div>
+  <div class="pipe-content">
+    <h4>Extract</h4>
+    <p><strong>PDFExtractor</strong> (PyMuPDF): page-by-page text extraction, handles mixed English/German content. Falls back automatically to <strong>OCRExtractor</strong> (Tesseract 5 with German language model) if text extraction yields empty pages or for <code>.jpg/.png</code> files.</p>
+  </div>
+</div>
+<div class="pipe-step">
+  <div class="pipe-num">2</div>
+  <div class="pipe-content">
+    <h4>Transform</h4>
+    <p><strong>TextCleaner</strong>: normalises whitespace, pipe characters, and German umlauts. &nbsp;
+    <strong>LanguageDetector</strong>: tags each chunk as <code>en</code> or <code>de</code>. &nbsp;
+    <strong>ContentTypeDetector</strong>: classifies as <code>qa</code> / <code>legal</code> / <code>narrative</code> to select the appropriate chunking strategy.</p>
+    <p>Three chunking strategies: (1) <em>QA</em>: split at <code>Q:</code> markers — one chunk per question/answer pair. (2) <em>Legal</em>: split at §, Article N, Clause N — one chunk per clause (atomic unit of legal meaning). (3) <em>Narrative</em>: <code>RecursiveCharacterTextSplitter</code> at 1500 chars / 200-char overlap.</p>
+  </div>
+</div>
+<div class="pipe-step">
+  <div class="pipe-num">3</div>
+  <div class="pipe-content">
+    <h4>Embed &amp; Load</h4>
+    <p><strong>EmbeddingService</strong>: generates 1024-dimensional vectors using <code>BAAI/bge-m3</code> (multilingual, runs locally — no API call during ingest). Each chunk is stored in ChromaDB with <strong>14 metadata fields</strong>: source file, page number, chunk index, total chunks, language, content type, MD5 checksum, file size, extraction method, is_scanned flag, embedding model, upload timestamp, text preview, chunking strategy.</p>
+  </div>
+</div>
+<div class="pipe-step">
+  <div class="pipe-num">4</div>
+  <div class="pipe-content">
+    <h4>Deduplication Guard</h4>
+    <p><code>ingestion_registry.json</code> tracks every ingested file by MD5 checksum. Uploading the same file twice returns <code>status="skipped"</code> instantly — no re-embedding. Attempting to ingest with a different embedding model returns <code>409 Conflict</code> to prevent incompatible vector dimensions from mixing in the same collection.</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     SECTION 5 — RETRIEVAL
+════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>5. Retrieval Layer — What's New</h2>
+
+<h3>5.1 Classic Dense Retrieval (baseline)</h3>
+<p>The original retrieval pipeline used cosine similarity on <code>BAAI/bge-m3</code> embeddings: the query is embedded to a 1024-dim vector, ChromaDB returns the top-K most similar chunks, and a threshold of ≥0.40 filters out low-relevance results. This works well for paraphrased queries but misses exact legal terms.</p>
+
+<h3>5.2 Hybrid BM25 + Dense + Reciprocal Rank Fusion <span class="new">NEW</span></h3>
+
+<div class="callout green">
+  <strong>Why hybrid matters:</strong> Dense vectors handle paraphrased queries ("ending the agreement" ↔ "termination"). BM25 handles exact legal terms that dense search can miss — entity names like "Riverty GmbH", article numbers like "§12", regulation citations like "Article 17 GDPR". RRF merges both ranked lists without requiring calibrated score scales.
+</div>
+
+<div class="swap-box"># ============================================================
+# DEMO MODE: BM25 index built in-memory over ChromaDB chunk texts.
+# PRODUCTION SWAP → Azure AI Search hybrid mode:
+#   Azure AI Search runs BM25 + vector natively in a single API call.
+#   No separate BM25 index needed — remove hybrid_retriever.py entirely.
+# ============================================================</div>
+
+<p>The <code>HybridRetriever</code> class maintains an in-memory <code>BM25Okapi</code> index over all ChromaDB chunks. The index is built lazily on first query and automatically refreshed when new documents are ingested.</p>
+
+<p><strong>Reciprocal Rank Fusion (RRF)</strong> merges the two ranked lists using the formula:</p>
+<pre>
+RRF_score(chunk C) = Σ  1 / (K + rank_of_C_in_list_L)
+                   L ∈ {dense, BM25}
+
+K = 60 (standard constant — reduces impact of extreme top ranks)
+
+Example: chunk "§12 Termination" ranked 1st in BM25 and 3rd in dense:
+  RRF = 1/(60+1) + 1/(60+3) = 0.01639 + 0.01587 = 0.03226
+
+Chunk appearing in only one list always scores lower than one appearing in both.
+Fallback: if BM25 returns nothing → dense only; if dense returns nothing → BM25 only.
+</pre>
+
+<h3>5.3 Cross-Encoder Reranking <span class="new">NEW</span></h3>
+
+<p>After RRF merging, the top candidates are reranked using <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code>:</p>
+
+<table>
+  <tr><th>Bi-encoder (retrieval)</th><th>Cross-encoder (reranking)</th></tr>
+  <tr><td>Encodes query and chunk independently, then compares embeddings. Fast — works at scale.</td><td>Reads query and chunk text jointly in one forward pass. Much more accurate relevance signal.</td></tr>
+  <tr><td>May confuse "payment terms agreement" with "termination agreement" due to shared context.</td><td>Correctly distinguishes fine-grained relevance — critical for short legal clauses.</td></tr>
+</table>
+
+<p>The cross-encoder model (~80 MB) is lazy-loaded on first query and cached. If unavailable (e.g. no internet on first run), the system falls back silently to sorting by cosine similarity — no error, retrieval continues to work.</p>
+
+<h3>5.4 MMR Diversity Filter <span class="new">NEW</span></h3>
+
+<p>After reranking, Maximal Marginal Relevance (MMR) selects a diverse subset of top-K chunks. Without it, the top 8 chunks might all be slight variations of the same termination clause from the same document — wasting the LLM context window.</p>
+
+<pre>
+MMR_score(candidate C) = λ × relevance(C)  −  (1−λ) × max_similarity(C, already_selected)
+
+λ = 0.6 → 60% relevance weight / 40% diversity penalty
+Inter-chunk similarity: Jaccard overlap of token sets (no extra model needed)
+
+Result: diverse set of chunks from different contracts and different clause types
+        → GPT-4o receives broader evidence → better answer quality
+</pre>
+
+<h3>Complete Retrieval Pipeline (Mode 3)</h3>
+<div class="flow-row">
+  <div class="flow-step">Query<small>user question</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">BM25Okapi<small>keyword match</small></div>
+  <span class="flow-arrow">+</span>
+  <div class="flow-step">ChromaDB<small>cosine search</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">RRF Merge<small>top-16 unified</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">CrossEncoder<small>rerank → top-8</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">MMR Filter<small>diverse top-8</small></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">GPT-4o<small>grounded answer</small></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     SECTION 6 — LANGGRAPH
+════════════════════════════════════════════ -->
+<h2>6. LangGraph Agent Pipeline</h2>
+
+<p>The query pipeline is implemented as a 4-node LangGraph state machine. Each node receives the typed state dict and returns an updated version — independently testable and replaceable.</p>
+
+<div class="grid-4">
+  <div class="card">
+    <div class="card-title">Node 1 · query_router</div>
+    <p>Classifies the question: <code>find_clause</code>, <code>compare_contracts</code>, <code>summarise</code>, <code>general_question</code>, <code>find_missing</code>. Determines context-building strategy in Node 3.</p>
+  </div>
+  <div class="card">
+    <div class="card-title">Node 2 · retriever</div>
+    <p>Runs HybridRetriever → CrossEncoder → MMR. Returns top-8 diverse, reranked chunks with full metadata (source file, page, chunk index, similarity score).</p>
+  </div>
+  <div class="card">
+    <div class="card-title">Node 3 · reasoner</div>
+    <p>For <code>find_missing</code>: groups chunks by document → per-document context → per-document verdict. Otherwise: flat context string → grounded-answer prompt → GPT-4o streaming.</p>
+  </div>
+  <div class="card">
+    <div class="card-title">Node 4 · formatter</div>
+    <p>Appends source citations with relevance dots: ● = high relevance (≥0.65), ◐ = relevant (0.40–0.65). Every claim is traceable to a specific document and page.</p>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>Why LangGraph over a simple chain:</strong> The query router means different query types get different context-building strategies without a monolithic prompt. Each node is independently unit-tested. Future additions (hallucination check node, feedback loop node) can be inserted without refactoring the existing graph.
+</div>
+
+<!-- ════════════════════════════════════════════
+     SECTION 7 — TECH STACK
+════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>7. Tech Stack &amp; Azure Production Swap</h2>
+
+<h3>Backend</h3>
+<table>
+  <tr><th>Layer</th><th>Demo (Today)</th><th>Production (Azure)</th><th>Why this choice</th></tr>
+  <tr>
+    <td><strong>Vector store</strong></td>
+    <td>ChromaDB 1.5.5 — zero-config, in-process, local disk</td>
+    <td>Azure AI Search — hybrid vector + BM25, RBAC, SOC 2</td>
+    <td>One-line swap; Azure adds enterprise scale and keyword search natively</td>
+  </tr>
+  <tr>
+    <td><strong>BM25 index</strong></td>
+    <td>rank_bm25 — in-memory BM25Okapi over ChromaDB corpus</td>
+    <td><em>Not needed</em> — Azure AI Search has BM25 built-in</td>
+    <td>Bridges the gap between ChromaDB (vector only) and Azure AI Search (hybrid)</td>
+  </tr>
+  <tr>
+    <td><strong>LLM</strong></td>
+    <td>AsyncOpenAI GPT-4o (api.openai.com)</td>
+    <td>AsyncAzureOpenAI GPT-4o — same model, data stays in Azure tenant</td>
+    <td>Identical SDK; switching is changing one URL + credentials</td>
+  </tr>
+  <tr>
+    <td><strong>Embeddings</strong></td>
+    <td>BAAI/bge-m3 — local, free, offline, 1024-dim, multilingual</td>
+    <td>Azure OpenAI text-embedding-3-large — 3072-dim, within Azure tenant</td>
+    <td>bge-m3 runs offline — contract text never leaves the machine during demo</td>
+  </tr>
+  <tr>
+    <td><strong>Reranker</strong></td>
+    <td>cross-encoder/ms-marco-MiniLM-L-6-v2 — local ~80 MB</td>
+    <td>Azure Cognitive Search semantic reranker</td>
+    <td>Local model sufficient for demo; Azure reranker scales without CPU load</td>
+  </tr>
+  <tr>
+    <td><strong>PDF extraction</strong></td>
+    <td>PyMuPDF 1.27 + pytesseract 0.3.13 (Tesseract 5, German model)</td>
+    <td>Azure Document Intelligence</td>
+    <td>Handles handwriting, low-quality scans, table extraction in production</td>
+  </tr>
+  <tr>
+    <td><strong>File storage</strong></td>
+    <td>Local filesystem <code>./uploads/</code></td>
+    <td>Azure Blob Storage — versioning + legal hold</td>
+    <td>Versioned contract copies + right-to-erasure support for GDPR</td>
+  </tr>
+  <tr>
+    <td><strong>Agent framework</strong></td>
+    <td>LangGraph 1.1.3</td>
+    <td>LangGraph (unchanged)</td>
+    <td>Works natively with Azure OpenAI — no changes needed</td>
+  </tr>
+  <tr>
+    <td><strong>Auth</strong></td>
+    <td>None (single-user local demo)</td>
+    <td>Azure Active Directory — SSO with existing Riverty credentials</td>
+    <td>Legal team uses existing login; RBAC per role (viewer / ingester / admin)</td>
+  </tr>
+</table>
+
+<h3>Frontend</h3>
+<table>
+  <tr><th>Tool</th><th>What it does</th><th>Why chosen</th></tr>
+  <tr><td><strong>React 18 + TypeScript</strong></td><td>UI framework</td><td>TypeScript discriminated union <code>AnalysisMode = 'search' | 'analyze' | 'compare'</code> makes it impossible to pass the wrong mode to the backend at compile time</td></tr>
+  <tr><td><strong>Vite</strong></td><td>Build tool + dev server</td><td>Builds in under 500ms; proxy config eliminates CORS issues during development</td></tr>
+  <tr><td><strong>TailwindCSS</strong></td><td>Styling</td><td>Utility-first; no CSS files; consistent design tokens across all components</td></tr>
+</table>
+
+<h3>The Swap Pattern — One Environment Variable</h3>
+<div class="swap-box">APP_ENV=development   # → demo stack (ChromaDB, bge-m3 local, OpenAI direct)
+APP_ENV=production    # → Azure stack (Azure AI Search, text-embedding-3-large, Azure OpenAI)</div>
+
+<p>All swappable components implement abstract base classes (<code>BaseLoader</code>, <code>BaseExtractor</code>, <code>BaseStorage</code>). The calling code in <code>pipeline.py</code> and <code>agent.py</code> never imports the concrete class directly — <code>APP_ENV</code> selects the right implementation at construction time. No business logic changes.</p>
+
+<p><strong>Six credentials needed for production:</strong> <code>AZURE_OPENAI_API_KEY</code> · <code>AZURE_SEARCH_KEY</code> · <code>AZURE_BLOB_CONN_STR</code> · <code>AZURE_DOC_INTEL_KEY</code> · <code>AZURE_TENANT_ID</code> · <code>AZURE_CLIENT_ID</code></p>
+
+<!-- ════════════════════════════════════════════
+     SECTION 8 — API
+════════════════════════════════════════════ -->
+<h2>8. API Reference</h2>
+
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Request</th><th>Response</th><th>Mode</th></tr>
+  <tr><td>GET</td><td><code>/health</code></td><td>—</td><td><code>{status, mode, document_count, version}</code></td><td>—</td></tr>
+  <tr><td>POST</td><td><code>/api/ingest</code></td><td><code>multipart: file</code></td><td><code>{status, chunks_created, language}</code></td><td>—</td></tr>
+  <tr><td>POST</td><td><code>/api/ingest-all</code></td><td>—</td><td><code>{results: [...]}</code></td><td>—</td></tr>
+  <tr><td>POST</td><td><code>/api/query</code></td><td><code>{"question": str}</code></td><td>SSE token stream</td><td>3</td></tr>
+  <tr><td>POST</td><td><code>/api/analyze</code></td><td><code>multipart: file, question, mode</code></td><td>SSE token stream</td><td>1 / 2</td></tr>
+  <tr><td>POST</td><td><code>/api/compliance</code></td><td><code>multipart: file, guidelines?</code></td><td><code>ComplianceResult</code> JSON</td><td>1</td></tr>
+  <tr><td>GET</td><td><code>/api/files/{filename}</code></td><td>—</td><td>PDF bytes</td><td>—</td></tr>
+  <tr><td>GET</td><td><code>/api/suggested-questions</code></td><td>—</td><td><code>[{id, text, category}]</code></td><td>—</td></tr>
+  <tr><td>POST</td><td><code>/api/eval/retrieve</code> <span class="new">NEW</span></td><td><code>{"question": str, "top_k": int}</code></td><td><code>{question, chunks[], total_retrieved}</code></td><td>Eval</td></tr>
+  <tr><td>GET</td><td><code>/docs</code></td><td>—</td><td>Swagger UI (interactive)</td><td>—</td></tr>
+</table>
+
+<p>All answer endpoints use <strong>Server-Sent Events (SSE)</strong>: tokens stream as <code>data: token\n\n</code>, terminated by <code>data: [DONE]\n\n</code>. SSE is preferred over WebSocket because it traverses corporate firewalls as plain HTTP with no protocol upgrade required.</p>
+
+<p>The <code>/api/eval/retrieve</code> endpoint is for the evaluation harness only — it runs the full hybrid retrieval pipeline and returns raw chunks without calling GPT-4o, enabling cheap IR metric computation.</p>
+
+<!-- ════════════════════════════════════════════
+     SECTION 9 — FRONTEND
+════════════════════════════════════════════ -->
+<h2>9. Frontend Architecture</h2>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Layout</div>
+    <p><strong>Left sidebar:</strong> Knowledge base management — drag-drop PDF upload (persistent, stored in ChromaDB), list of all ingested files.</p>
+    <p><strong>Right panel:</strong> Three-tab mode switcher (Search / Analyse / Compare) with mode-specific upload zones, query input, suggested questions, compliance check button, and streaming response display.</p>
+  </div>
+  <div class="card">
+    <div class="card-title">Key Design Decisions</div>
+    <ul>
+      <li><strong>Temporary uploads</strong> show a blue "Temporary" badge — enforced at server level.</li>
+      <li><strong>Mode switching</strong> clears all response state — no stale content bleed between modes.</li>
+      <li><strong>useDocumentAnalysis</strong> hook encapsulates all temp file + streaming + compliance state.</li>
+      <li><strong>SSE</strong> via <code>fetch()</code> + <code>response.body.getReader()</code> (not <code>EventSource</code>) — allows POST with body.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     SECTION 10 — EVALUATION FRAMEWORK
+════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>10. Evaluation Framework — 7 Categories, 22 Metrics <span class="new">NEW</span></h2>
+
+<div class="callout green">
+  <strong>Design principle:</strong> Generic NLP metrics (BLEU, ROUGE) measure word overlap. A system can score well on BLEU and still fail to identify a missing GDPR clause. The 22 metrics here are designed specifically for RAG systems operating in the legal domain — each category catches a different class of failure.
+</div>
+
+<h3>Overview — All 22 Metrics at a Glance</h3>
+<div class="grid-2">
+  <div>
+    <div class="metric-group">
+      <h4>1 · Retrieval (3 metrics)</h4>
+      <ul>
+        <li><strong>Precision@K</strong> — fraction of retrieved chunks that are relevant</li>
+        <li><strong>Recall@K</strong> — fraction of relevant chunks that were retrieved</li>
+        <li><strong>Mean Reciprocal Rank (MRR)</strong> — average of 1/rank of first relevant result</li>
+      </ul>
+    </div>
+    <div class="metric-group">
+      <h4>2 · Generation (4 metrics)</h4>
+      <ul>
+        <li><strong>Faithfulness</strong> — answer stays grounded in retrieved chunks (no hallucination)</li>
+        <li><strong>Answer Relevance</strong> — answer actually addresses the question asked</li>
+        <li><strong>Completeness</strong> — answer covers all expected points from ground truth</li>
+        <li><strong>Hallucination Rate</strong> — fraction of claims unsupported by context</li>
+      </ul>
+    </div>
+    <div class="metric-group">
+      <h4>3 · Legal Domain (4 metrics)</h4>
+      <ul>
+        <li><strong>Contract Hit (C-Hit)</strong> — Mode 2: does the answer reference the correct contract?</li>
+        <li><strong>Keyword Hit (Kw-Hit)</strong> — expected legal keywords present in answer?</li>
+        <li><strong>Absent Keyword Pass (AbsKw)</strong> — system correctly says clause is absent?</li>
+        <li><strong>Comparison Hit (Cmp-Hit)</strong> — comparison answer covers both contracts?</li>
+      </ul>
+    </div>
+    <div class="metric-group">
+      <h4>4 · Context Quality (2 metrics)</h4>
+      <ul>
+        <li><strong>Context Precision</strong> — are retrieved chunks actually useful to GPT-4o?</li>
+        <li><strong>Context Recall</strong> — were any relevant chunks missed during retrieval?</li>
+      </ul>
+    </div>
+  </div>
+  <div>
+    <div class="metric-group">
+      <h4>5 · Attribution (2 metrics)</h4>
+      <ul>
+        <li><strong>Citation Accuracy</strong> — cited source files actually exist in the knowledge base?</li>
+        <li><strong>Citation Coverage</strong> — fraction of answer sentences that have at least one citation?</li>
+      </ul>
+    </div>
+    <div class="metric-group">
+      <h4>6 · Robustness (2 metrics)</h4>
+      <ul>
+        <li><strong>Query Consistency</strong> — consistent answers across paraphrased versions of the same question?</li>
+        <li><strong>Noise Sensitivity</strong> — answer stability when irrelevant noise chunks are injected?</li>
+      </ul>
+    </div>
+    <div class="metric-group">
+      <h4>7 · System Performance (2 metrics)</h4>
+      <ul>
+        <li><strong>Latency</strong> — wall-clock time from request to final SSE token (milliseconds)</li>
+        <li><strong>Cost per Query</strong> — estimated OpenAI token cost per query (USD)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<h3>Implementation Architecture — Pluggable Metrics Package</h3>
+
+<pre>
+backend/tests/eval/
+├── run_eval.py                 # Orchestrator — runs all 3 modes, collects all 22 metrics
+├── ground_truth.json           # Expected answers and keywords per test question
+└── metrics/                    # Pluggable metric modules
+    ├── answer_metrics.py       # Faithfulness, Answer Relevance, Completeness, Hallucination
+    ├── context_metrics.py      # Context Precision, Context Recall
+    ├── attribution_metrics.py  # Citation Accuracy, Citation Coverage
+    ├── cost_metrics.py         # Cost per Query, Session Cost aggregation
+    └── robustness_metrics.py   # Query Consistency, Noise Sensitivity + paraphrase generator
+</pre>
+
+<p>Each module is independently importable and testable. New metrics can be added by creating a new module and registering it in <code>run_eval.py</code> — no changes to the core pipeline.</p>
+
+<h3>Retrieval Metrics (Category 1) — Using the Eval Endpoint</h3>
+<p>IR metrics are computed via <code>POST /api/eval/retrieve</code> which runs HybridRetriever → CrossEncoder → MMR and returns raw chunks. This evaluates real production retrieval quality cheaply — no LLM token costs.</p>
+
+<table>
+  <tr><th>Metric</th><th>Formula</th></tr>
+  <tr><td><strong>Precision@K</strong></td><td>|{retrieved} ∩ {relevant}| / K</td></tr>
+  <tr><td><strong>Recall@K</strong></td><td>|{retrieved} ∩ {relevant}| / |{relevant}|</td></tr>
+  <tr><td><strong>MRR</strong></td><td>Mean over queries of 1 / rank(first relevant chunk)</td></tr>
+</table>
+
+<h3>Faithfulness — Dual Backend (automatic fallback)</h3>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Primary — LLM Judge (GPT-4o-mini)</div>
+    <p>GPT-4o-mini receives: the question, retrieved context, and the system's answer. It scores faithfulness 0–10 based on whether every factual claim in the answer appears in the provided context. Score normalised to 0–1. Most accurate method.</p>
+    <p><em>Requires: OPENAI_API_KEY</em></p>
+  </div>
+  <div class="card">
+    <div class="card-title">Fallback — Local Embedding Cosine</div>
+    <p>Mean cosine similarity between context chunk embeddings and the answer embedding, computed locally using <code>BAAI/bge-m3</code>. Always available offline — no API call required. Lower absolute accuracy but always available.</p>
+    <p><em>Automatic fallback if API key absent</em></p>
+  </div>
+</div>
+
+<h3>Legal Domain Metrics (Category 3) — Why They Matter</h3>
+<p>These are the most important metrics for Riverty's legal use case. Each maps directly to a real workflow scenario:</p>
+
+<table>
+  <tr><th>Metric</th><th>Mode</th><th>Real scenario it validates</th></tr>
+  <tr><td><strong>Contract Hit</strong></td><td>2</td><td>When comparing a draft, does the system find and reference the correct comparison contracts?</td></tr>
+  <tr><td><strong>Keyword Hit</strong></td><td>1, 2, 3</td><td>When asked about GDPR, termination, or liability, does the answer contain the expected legal terms?</td></tr>
+  <tr><td><strong>Absent Keyword Pass</strong></td><td>1</td><td>When a clause is genuinely missing from a contract, does the system correctly report "not found" rather than hallucinating a clause?</td></tr>
+  <tr><td><strong>Comparison Hit</strong></td><td>3</td><td>For "which contracts differ in X", does the answer correctly identify all relevant contracts — not just the most similar one?</td></tr>
+</table>
+
+<h3>Robustness Testing</h3>
+<p><strong>Query Consistency:</strong> The <code>generate_paraphrases()</code> function creates semantically-equivalent variants of each test question. The system must give consistent answers regardless of phrasing — critical because different legal reviewers may phrase the same question differently.</p>
+<p><strong>Noise Sensitivity:</strong> The <code>inject_noise_chunks()</code> function appends irrelevant distractor chunks to the retrieved context. A robust system should maintain its answer quality; a fragile one will be thrown off by irrelevant material. Low noise sensitivity score = robust.</p>
+
+<h3>Evaluation Output Sample</h3>
+<pre>
+# results/eval_20260402_143022.json  (generated by run_eval.py)
+{
+  "run_timestamp": "2026-04-02T14:30:22",
+  "model": "gpt-4o",
+  "embedding_model": "BAAI/bge-m3",
+  "top_k": 8,
+  "summary": {
+    "mode_1": {
+      "contract_hit": 0.92,  "keyword_hit": 0.88,
+      "faithfulness": 0.91,  "hallucination_rate": 0.04,
+      "avg_latency_s": 2.3,  "avg_cost_usd": 0.004
+    },
+    "mode_2": {
+      "precision_at_k": 0.75,  "recall_at_k": 0.68,  "mrr": 0.82,
+      "contract_hit": 0.85,    "faithfulness": 0.89,
+      "context_precision": 0.81,  "citation_accuracy": 0.97
+    },
+    "mode_3": {
+      "keyword_hit": 0.86,  "comparison_hit": 0.80,
+      "query_consistency": 0.84,  "noise_sensitivity": 0.12,
+      "citation_coverage": 0.93,  "avg_latency_s": 3.1
+    }
+  }
+}
+</pre>
+
+<!-- ════════════════════════════════════════════
+     SECTION 11 — HOW TO RUN
+════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2>11. How to Run &amp; Evaluate</h2>
+
+<div class="grid-2">
+  <div>
+    <h3>Backend Setup (5 minutes)</h3>
+    <pre>
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Set OPENAI_API_KEY in .env
+
+uvicorn app.main:app --reload --port 8000
+# → http://localhost:8000/docs</pre>
+
+    <h3>Frontend Setup</h3>
+    <pre>
+cd frontend
+npm install && npm run dev
+# → http://localhost:5173</pre>
+  </div>
+  <div>
+    <h3>Ingest Contracts</h3>
+    <pre>
+# Via UI: drag PDF to left sidebar
+# Via API:
+curl -X POST http://localhost:8000/api/ingest \
+     -F "file=@contract.pdf"
+
+# Batch ingest:
+bash backend/run_pipeline.sh --ingest-only</pre>
+
+    <h3>Run Tests</h3>
+    <pre>
+cd backend
+bash run_tests.sh
+# → 122 tests, 0 failed
+
+# Run evaluation harness:
+python tests/eval/run_eval.py \
+  --modes 1,2,3 --top-k 8 \
+  --output-dir results/</pre>
+  </div>
+</div>
+
+<div class="callout amber">
+  <strong>Note on the evaluation harness:</strong> The backend server must be running before executing <code>run_eval.py</code>. Faithfulness scoring uses GPT-4o-mini (requires <code>OPENAI_API_KEY</code>). If the key is absent, the harness automatically switches to the local embedding fallback — all other metrics still compute normally.
+</div>
+
+<!-- ════════════════════════════════════════════
+     SECTION 12 — ROADMAP
+════════════════════════════════════════════ -->
+<h2>12. Production Roadmap</h2>
+
+<div class="grid-2">
+  <div class="card" style="border-left: 4px solid #16a34a;">
+    <div class="card-title" style="color:#16a34a;">✓ Ready Today — v2</div>
+    <ul>
+      <li>Full ETL pipeline (PDF + OCR, German + English)</li>
+      <li>3 analysis modes with SSE streaming</li>
+      <li>Hybrid BM25 + dense retrieval + RRF</li>
+      <li>Cross-encoder reranking + MMR diversity filter</li>
+      <li>Compliance check — structured JSON result</li>
+      <li>Evaluation harness: 22 metrics, 7 categories</li>
+      <li>React frontend — drag-drop, citations, 3 modes</li>
+      <li>122 tests, 7 Architecture Decision Records</li>
+      <li>Azure swap pattern — every component documented</li>
+    </ul>
+  </div>
+  <div class="card" style="border-left: 4px solid #d97706;">
+    <div class="card-title" style="color:#d97706;">Short-Term (1–2 weeks)</div>
+    <ul>
+      <li><code>GET /api/files</code> listing — sidebar persists on page refresh</li>
+      <li>Re-index ChromaDB with consistent 1500-char chunks</li>
+      <li>Stream compliance check response (currently waits full result)</li>
+      <li>VITE_ prefix for BASE_URL in frontend .env</li>
+    </ul>
+  </div>
+</div>
+<div class="grid-2" style="margin-top:10pt;">
+  <div class="card" style="border-left: 4px solid #0369a1;">
+    <div class="card-title" style="color:#0369a1;">Production Switch</div>
+    <ul>
+      <li>Set <code>APP_ENV=production</code> + 6 Azure credentials in <code>.env</code></li>
+      <li>Deploy to Azure Container Apps (Dockerfile included)</li>
+      <li>Azure AD SSO — legal team uses existing Riverty login</li>
+      <li>CORS update for production domain</li>
+      <li>Terraform modules for Azure resources (~2–3 days)</li>
+      <li>Remove <code>hybrid_retriever.py</code> — Azure AI Search handles BM25 natively</li>
+    </ul>
+  </div>
+  <div class="card" style="border-left: 4px solid #1a56b0;">
+    <div class="card-title">Advanced Enhancements</div>
+    <ul>
+      <li>Redis cache for embeddings + frequent queries</li>
+      <li>Azure Service Bus for async ingestion at scale</li>
+      <li>SharePoint integration — auto-ingest on upload</li>
+      <li>Contract type classification (NDA / Service / Vendor)</li>
+      <li>Multi-file batch upload (zip ingest)</li>
+      <li>RAGAS integration for automated faithfulness scoring</li>
+      <li>Audit log for every query (compliance trail)</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Adoption Plan</h3>
+<div class="grid-3">
+  <div class="card" style="border-top: 3px solid #1a56b0;">
+    <div class="card-title">Phase 1 — Pilot</div>
+    <p>2–3 legal reviewers, 2 weeks. Pre-load 50 most-referenced contracts. Measure time-to-answer before vs. after. Collect feedback on missed clauses.</p>
+  </div>
+  <div class="card" style="border-top: 3px solid #0e7490;">
+    <div class="card-title">Phase 2 — Iterate</div>
+    <p>Tune similarity threshold based on real feedback. Add SharePoint integration. Build query templates for the 5 most common review tasks.</p>
+  </div>
+  <div class="card" style="border-top: 3px solid #16a34a;">
+    <div class="card-title">Phase 3 — Full Rollout</div>
+    <p>Azure AD SSO — existing Riverty credentials. Role-based access: viewers / ingesters / admins. Audit log for every query.</p>
+  </div>
+</div>
+
+<div class="callout red">
+  <strong>Important — what the system does NOT do:</strong> It does not give legal advice. It does not replace lawyers — it surfaces evidence so humans can decide faster and more consistently. It does not interpret contract validity. Every answer cites its source — every claim is auditable.
+</div>
+
+<!-- ════════════════════════════════════════════
+     SECTION 13 — FILE STRUCTURE
+════════════════════════════════════════════ -->
+<h2>13. File &amp; Folder Structure</h2>
+
+<pre>
+riverty-contract-review/
+├── CLAUDE.md                           # Coding conventions
+├── backend/
+│   ├── requirements.txt                # All Python dependencies pinned
+│   ├── .env.example                    # Template for all environment variables
+│   ├── Dockerfile                      # Python 3.12 production image
+│   ├── run_tests.sh                    # pytest + coverage (122 tests)
+│   └── app/
+│       ├── main.py                     # FastAPI app + router registration
+│       ├── config.py                   # Pydantic Settings — single .env read
+│       ├── models.py                   # ComplianceResult + shared Pydantic models
+│       ├── api/routes/
+│       │   ├── query.py                # POST /api/query  (MODE 3 — SSE)
+│       │   ├── analyze.py              # POST /api/analyze (MODE 1 & 2 — SSE)
+│       │   ├── compliance.py           # POST /api/compliance (JSON)
+│       │   ├── ingest.py               # POST /api/ingest
+│       │   ├── eval_retrieve.py        # POST /api/eval/retrieve [NEW — eval only]
+│       │   ├── files.py                # GET /api/files/{filename}
+│       │   ├── suggestions.py          # GET /api/suggested-questions
+│       │   └── health.py               # GET /health
+│       ├── etl/
+│       │   ├── pipeline.py             # IngestionPipeline orchestrator
+│       │   ├── registry.py             # MD5 dedup + embedding model guard
+│       │   ├── extractors/             # PDFExtractor, OCRExtractor (Strategy Pattern)
+│       │   ├── transformers/           # TextCleaner, LanguageDetector, Chunker
+│       │   └── loaders/                # ChromaLoader (demo) ↔ AzureSearchLoader (prod)
+│       ├── rag/
+│       │   ├── embeddings.py           # EmbeddingService (bge-m3 / Azure swap)
+│       │   ├── retriever.py            # Classic cosine retriever (compliance/analyze)
+│       │   ├── hybrid_retriever.py     # BM25 + dense + RRF [NEW]
+│       │   ├── reranker.py             # CrossEncoder + MMR filter [NEW]
+│       │   ├── agent.py                # LangGraph 4-node graph
+│       │   ├── llm_client.py           # OpenAI / AzureOpenAI factory
+│       │   ├── document_analyzer.py    # MODE 1 & 2 analysis functions
+│       │   └── document_grouper.py     # Per-document grouping for MODE 3
+│       └── storage/
+│           ├── local_storage.py        # Local ./uploads/ (demo)
+│           └── azure_blob_storage.py   # Azure Blob Storage (production)
+│
+├── frontend/src/
+│   ├── App.tsx                         # Root — three-mode layout
+│   ├── services/                       # api.ts, streaming.ts (SSE helpers)
+│   ├── hooks/useDocumentAnalysis.ts    # File + streaming + compliance state
+│   └── components/                     # ModeSelector, FileUpload, StreamingResponse, etc.
+│
+├── docs/
+│   ├── decisions.md                    # ADR-001 to ADR-007
+│   ├── implementation-status.md
+│   └── setup.md
+│
+└── backend/tests/
+    ├── unit/                           # 122 fast offline tests (mocked externals)
+    └── eval/                           # [NEW] evaluation harness
+        ├── run_eval.py                 # Main script — all 3 modes, 22 metrics
+        ├── ground_truth.json
+        └── metrics/                    # answer, context, attribution, cost, robustness
+</pre>
+
+<!-- ════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════ -->
+<div style="margin-top:30pt; border-top:2px solid #e2e8f0; padding-top:10pt; text-align:center;">
+  <p style="font-size:8pt; color:#94a3b8;">
+    Riverty Contract Review · AI-Powered Legal Analysis System · v2 · April 2026 · Branch: <code>main</code><br>
+    Built with FastAPI · LangGraph · BAAI/bge-m3 · rank_bm25 · ChromaDB · React 18 · Azure-Ready
+  </p>
+</div>
+
+</body>
+</html>

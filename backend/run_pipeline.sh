@@ -40,7 +40,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-API_URL="http://localhost:8000/api/ingest-all"
+# API_URL="http://localhost:8000/api/ingest-all
+
+API_URL="http://localhost:8000/api/ingest-all?force=true"
 HEALTH_URL="http://localhost:8000/docs"   # simple readiness check
 
 # ── Check if API is reachable ────────────────────────────────────────────────

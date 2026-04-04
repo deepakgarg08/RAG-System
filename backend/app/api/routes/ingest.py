@@ -4,10 +4,14 @@ Accepts a multipart file upload, delegates to the ETL pipeline, and returns
 {filename, chunks, status}. Contains no pipeline logic itself.
 """
 import logging
+import os
 import time
+from pathlib import Path
+from typing import List
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from app.config import settings
 from app.etl.compliance_storage import store_contract_in_api
 from app.etl.pipeline import IngestionPipeline, ModelMismatchError
 from app.models import IngestResponse
@@ -20,9 +24,20 @@ router = APIRouter()
 # Validated against EXTRACTOR_REGISTRY in pipeline.py
 _ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 
-import os
-from pathlib import Path
-from typing import List
+
+def _delete_registry_if_exists() -> None:
+    """Delete the ingestion registry file so the next pipeline run starts fresh.
+
+    Safe to call even if the file does not exist.
+    """
+    registry_path = settings.registry_path
+    if os.path.exists(registry_path):
+        os.remove(registry_path)
+        logger.warning(
+            "force=True — deleted ingestion registry at '%s'; all files will be re-ingested",
+            registry_path,
+        )
+
 
 def get_all_supported_files(base_dir: str, allowed_extensions: set) -> List[str]:
     """Recursively collect all supported files from base_dir."""
@@ -35,11 +50,20 @@ def get_all_supported_files(base_dir: str, allowed_extensions: set) -> List[str]
     return files
 
 @router.post("/ingest-all")
-def ingest_all_documents() -> dict:
-    """Scan uploads/ directory recursively and ingest all supported files."""
+def ingest_all_documents(force: bool = False) -> dict:
+    """Scan uploads/ directory recursively and ingest all supported files.
+
+    Args:
+        force: If True, delete the ingestion registry before ingesting so that
+               all files are re-ingested from scratch. Use this after wiping
+               ChromaDB to avoid 'already_ingested' skips.
+    """
 
     base_dir = "uploads"
     start = time.perf_counter()
+
+    if force:
+        _delete_registry_if_exists()
 
     try:
         pipeline = IngestionPipeline()
@@ -76,7 +100,7 @@ def ingest_all_documents() -> dict:
     }
 
 @router.post("/ingest", response_model=IngestResponse)
-async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
+async def ingest_document(file: UploadFile = File(...), force: bool = False) -> IngestResponse:
     """Accept a contract file upload and run it through the ETL pipeline.
 
     Validates file type, persists the file to local storage, then runs the
@@ -85,6 +109,8 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
 
     Args:
         file: Multipart upload. Supported types: .pdf, .jpg, .jpeg, .png.
+        force: If True, delete the ingestion registry before ingesting so
+               the file is always re-ingested even if previously recorded.
 
     Returns:
         IngestResponse with filename, file_type, language, chunks_created,
@@ -104,6 +130,9 @@ async def ingest_document(file: UploadFile = File(...)) -> IngestResponse:
                 f"Accepted types: {', '.join(sorted(_ALLOWED_EXTENSIONS))}"
             ),
         )
+
+    if force:
+        _delete_registry_if_exists()
 
     file_bytes = await file.read()
     file_size = len(file_bytes)
